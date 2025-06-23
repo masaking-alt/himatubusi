@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バーチャル線香花火</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Shippori Mincho', serif; background: radial-gradient(circle, #2c3e50, #000000); overflow: hidden; }
+        canvas { display: block; }
+        .ui-text { text-shadow: 0 0 8px rgba(255, 255, 255, 0.7); }
+        .mode-button { transition: all 0.2s ease-in-out; }
+        .mode-button:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body class="text-white">
+    <canvas id="sparklerCanvas"></canvas>
+
+    <div id="ui-container" class="absolute inset-0 p-8 pointer-events-none">
+        <div id="game-ui" class="hidden">
+            <h1 class="text-3xl lg:text-4xl ui-text">バーチャル線香花火</h1>
+            <div id="star-mode-stats" class="text-left mt-2 hidden">
+                <p class="text-2xl ui-text">スコア: <span id="score">0</span> / 25</p>
+                <p class="text-2xl ui-text mt-1">のこり時間: <span id="timer">0</span></p>
+            </div>
+        </div>
+        <div id="message-screen" class="w-full h-full flex flex-col justify-center items-center text-center">
+            <h1 id="message-title" class="text-4xl lg:text-5xl ui-text">バーチャル線香花火</h1>
+            <div id="mode-selection" class="mt-8 pointer-events-auto">
+                <p class="text-xl ui-text mb-4">モードを選んでください</p>
+                <div class="flex flex-col md:flex-row gap-4">
+                    <button id="star-mode-button" class="mode-button bg-yellow-500/80 text-white font-bold py-4 px-8 rounded-lg shadow-lg">星のかけら集め</button>
+                    <button id="life-mode-button" class="mode-button bg-purple-500/80 text-white font-bold py-4 px-8 rounded-lg shadow-lg">一生体験</button>
+                </div>
+            </div>
+            <p id="message-subtitle" class="hidden text-xl lg:text-2xl ui-text mt-4"></p>
+            <div id="comment-area" class="hidden mt-6 p-4 bg-black/50 rounded-lg w-full max-w-md">
+                <h2 class="text-xl ui-text text-yellow-300">✨ AIからの一言 ✨</h2>
+                <p id="comment-text" class="text-2xl ui-text mt-2 h-10"></p>
+            </div>
+        </div>
+        <div class="absolute bottom-8 left-0 right-0 flex justify-center">
+            <button id="reset-button" class="hidden bg-blue-500/50 hover:bg-blue-400/70 text-white font-bold py-3 px-8 rounded-full text-xl transition-all duration-300 pointer-events-auto">モード選択に戻る</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 初期設定 (変更なし) ---
+        const canvas = document.getElementById('sparklerCanvas'); const ctx = canvas.getContext('2d'); const resetButton = document.getElementById('reset-button'); const gameUI = document.getElementById('game-ui'); const starModeStats = document.getElementById('star-mode-stats'); const scoreUI = document.getElementById('score'); const timerUI = document.getElementById('timer'); const messageScreen = document.getElementById('message-screen'); const messageTitle = document.getElementById('message-title'); const messageSubtitle = document.getElementById('message-subtitle'); const modeSelection = document.getElementById('mode-selection'); const starModeButton = document.getElementById('star-mode-button'); const lifeModeButton = document.getElementById('life-mode-button'); const commentArea = document.getElementById('comment-area'); const commentText = document.getElementById('comment-text');
+        let particles = [], starFragments = []; let mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 }; let lastMouse = { x: mouse.x, y: mouse.y }; let gameState = 'waiting'; let selectedMode = ''; let gameInterval; let score = 0; let timeLeft = 0; const TARGET_SCORE = 25; const GAME_DURATION = 30; let gameTimer = 0; let currentStage = 0; const STAGE_DURATIONS = { BOTAN: 7*60, MATSUBA: 8*60, YANAGI: 7*60 }; const TOTAL_DURATION = STAGE_DURATIONS.BOTAN + STAGE_DURATIONS.MATSUBA + STAGE_DURATIONS.YANAGI;
+        const droppedMessages = ["儚く散った、俺の夏。", "さよなら、すべての線香花火。", "この手に残るは、ただ虚しさのみ…。", "扱いが雑！", "もうちょっと優しくしてくれない？", "せっかちさんめ。", "夏の終わり、早すぎ問題。", "集中力、ログアウトしました。", "【悲報】ワイの夏、終わる。"]; const timeupMessages = ["楽しい時間はあっという間。", "夏の夜の夢、覚める時間。", "また来年の夏に会おう。", "どうやら時間配分を間違えたようだ。", "タイムマネジメントも、夏の嗜み。", "おっと、夜が明けちまった。"]; const apiErrorMessages = ["AIも、夏の夜は眠いらしい。", "コメントの神、降臨せず。", "AIが一句考えてる間に、夏が終わった。", "花火の煙で、言葉がかすむ。", "夏の妖精が、電波を食べてしまった！", "静かすぎて、言葉も寝息をたてている。", "えーっと、なんだっけ？", "代わりに蚊の音をお届けします。…プ〜ン。", "通信エラーです。たぶん。"]; const lifeClearMessages = ["『静』の道の、免許皆伝。", "その集中力、まさに職人技。", "線香花火も、君に見守られ本望だろう。", "夏の夜に、小さな奇跡を見た。", "君は、ただの傍観者ではなかった。", "その一瞬は、永遠になった。", "夏の風物詩、完全攻略。", "おめでとう！君はもう、どこでも生きていける。", "夏の宿題、一つ完了。"];
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+        function updateMousePosition(e) { const event = e.touches ? e.touches[0] : e; mouse.x = event.clientX; mouse.y = event.clientY; }
+        class StarFragment { constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 5 + 5; this.alpha = 0; this.alphaChange = 0.05; } update() { this.alpha += this.alphaChange; if (this.alpha > 1 || this.alpha < 0) this.alphaChange *= -1; } draw() { ctx.save(); ctx.globalAlpha = this.alpha; ctx.fillStyle = '#FFD700'; ctx.shadowBlur = 10; ctx.shadowColor = '#FFD700'; ctx.beginPath(); for (let i = 0; i < 5; i++) { ctx.lineTo(this.x + this.size * Math.cos((18 + i * 72) * Math.PI / 180), this.y + this.size * Math.sin((18 + i * 72) * Math.PI / 180)); ctx.lineTo(this.x + (this.size/2) * Math.cos((54 + i * 72) * Math.PI / 180), this.y + (this.size/2) * Math.sin((54 + i * 72) * Math.PI / 180)); } ctx.closePath(); ctx.fill(); ctx.restore(); } }
+        class Particle { constructor(x, y, stage, isFireball = false) { this.x = x; this.y = y; this.stage = stage; this.isFireball = isFireball; this.gravity = 0; if (this.isFireball) { this.size = 6; this.vx = (Math.random() - 0.5) * 2; this.vy = Math.random() * 2; this.gravity = 0.1; this.life = 150; } else { const angle = Math.random() * Math.PI * 2; let speed; switch (this.stage) { case 1: this.size = Math.random() * 2 + 1; speed = Math.random() * 2.5 + 0.5; this.life = Math.random() * 50 + 30; break; case 2: this.size = Math.random() * 1.5 + 0.5; speed = Math.random() * 4 + 2; this.life = Math.random() * 40 + 20; break; case 3: this.size = Math.random() * 1 + 1; speed = Math.random() * 1.5 - 0.75; this.gravity = 0.03; this.life = Math.random() * 80 + 40; break; default: this.size = Math.random() * 2 + 1; speed = Math.random() * 3 + 1; this.life = Math.random() * 50 + 20; break;} this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed; } this.initialLife = this.life; } update() { this.vy += this.gravity; this.x += this.vx; this.y += this.vy; this.life--; if (!this.isFireball) { this.vx *= 0.97; this.vy *= 0.97; } } draw() { ctx.globalAlpha = this.life / this.initialLife; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fillStyle = `hsl(${Math.random() * 10 + 30}, 100%, ${Math.random() * 50 + 50}%)`; ctx.fill(); ctx.globalAlpha = 1.0; } }
+        function startGame() { gameState = 'playing'; canvas.style.cursor = 'none'; lastMouse = { x: mouse.x, y: mouse.y }; modeSelection.classList.add('hidden'); if (Tone.context.state !== 'running') Tone.context.resume(); if (selectedMode === 'star') { messageScreen.classList.add('hidden'); gameUI.classList.remove('hidden'); starModeStats.classList.remove('hidden'); score = 0; timeLeft = GAME_DURATION; scoreUI.textContent = score; timerUI.textContent = timeLeft; starFragments = []; for(let i = 0; i < 3; i++) starFragments.push(new StarFragment()); gameInterval = setInterval(() => { timeLeft--; timerUI.textContent = timeLeft; if (timeLeft <= 0) gameOver("timeup"); }, 1000); } else if (selectedMode === 'life') { gameUI.classList.add('hidden'); messageScreen.classList.remove('hidden'); messageSubtitle.classList.remove('hidden'); gameTimer = 0; currentStage = 1; messageTitle.textContent = '第一段階：牡丹'; messageSubtitle.textContent = '（そっと、動かして）'; } }
+        function animate() { ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; ctx.fillRect(0, 0, canvas.width, canvas.height); if (gameState === 'playing') { const dx = mouse.x - lastMouse.x; const dy = mouse.y - lastMouse.y; const distance = Math.sqrt(dx * dx + dy * dy); if (distance > 50) { gameOver("dropped"); } else { let particleStage = selectedMode === 'life' ? currentStage : 0; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 3, 0, Math.PI * 2); ctx.fillStyle = 'white'; ctx.fill(); for (let i = 0; i < 2; i++) particles.push(new Particle(mouse.x, mouse.y, particleStage)); } lastMouse.x = mouse.x; lastMouse.y = mouse.y; if (selectedMode === 'star') updateStarMode(); else if (selectedMode === 'life') updateLifeMode(); } starFragments.forEach(star => star.draw()); particles.forEach((p, index) => { p.update(); p.draw(); if (p.life < 0) particles.splice(index, 1); }); requestAnimationFrame(animate); }
+        function updateStarMode() { starFragments.forEach((star, index) => { star.update(); const distToStar = Math.sqrt(Math.pow(mouse.x - star.x, 2) + Math.pow(mouse.y - star.y, 2)); if (distToStar < star.size + 3) { score++; scoreUI.textContent = score; starFragments.splice(index, 1); starFragments.push(new StarFragment()); new Tone.Synth().toDestination().triggerAttackRelease("C5", "16n"); } }); }
+        function updateLifeMode() { gameTimer++; if (gameTimer > TOTAL_DURATION) { gameOver('cleared'); } else if (gameTimer > STAGE_DURATIONS.BOTAN + STAGE_DURATIONS.MATSUBA) { if(currentStage !== 3) { currentStage = 3; messageTitle.textContent = '第三段階：柳'; messageSubtitle.textContent = '（終わりは、近い）'; } } else if (gameTimer > STAGE_DURATIONS.BOTAN) { if(currentStage !== 2) { currentStage = 2; messageTitle.textContent = '第二段階：松葉'; messageSubtitle.textContent = '（まだまだ、これから）'; } } }
+        
+        // ★★★ ここからが修正箇所です ★★★
+        async function generateComment(resultType) {
+            commentArea.classList.remove('hidden');
+            commentText.textContent = '生成中...';
+            
+            // Hono APIのエンドポイント
+            const apiUrl = 'https://gemini-api.banbenjianggui.workers.dev/api/comment';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // Hono APIには `resultType` を送る
+                    body: JSON.stringify({ resultType: resultType })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    const errorMessage = errorData?.message || `APIエラー: ${response.statusText}`;
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                
+                if (result.success && result.response) {
+                    const text = result.response;
+                    commentText.textContent = text.replace(/「/g, '').replace(/」/g, '').replace(/"/g, '');
+                } else {
+                    commentText.textContent = apiErrorMessages[Math.floor(Math.random() * apiErrorMessages.length)];
+                }
+            } catch (error) {
+                console.error("Comment generation failed:", error);
+                commentText.textContent = apiErrorMessages[Math.floor(Math.random() * apiErrorMessages.length)];
+            }
+        }
+        // ★★★ ここまでが修正箇所です ★★★
+        
+        function gameOver(reason) { if(gameState !== 'playing') return; clearInterval(gameInterval); gameState = 'ended'; canvas.style.cursor = 'default'; gameUI.classList.add('hidden'); starModeStats.classList.add('hidden'); messageScreen.classList.remove('hidden'); let commentType = ''; if (reason === "dropped") { particles.push(new Particle(mouse.x, mouse.y, 0, true)); messageTitle.textContent = droppedMessages[Math.floor(Math.random() * droppedMessages.length)]; messageSubtitle.textContent = selectedMode === 'star' ? `スコア: ${score}` : ' '; commentType = 'dropped'; } else if (reason === "timeup") {  if (score >= TARGET_SCORE) { messageTitle.textContent = '🎉 クリア！ 🎉'; messageSubtitle.innerHTML = `見事に星を集めました！<br>スコア: ${score}`; commentType = 'timeup-clear'; } else { messageTitle.textContent = timeupMessages[Math.floor(Math.random() * timeupMessages.length)]; messageSubtitle.textContent = `スコア: ${score} (あと${TARGET_SCORE - score}個でした)`; commentType = 'timeup-fail'; } } else if (reason === "cleared") { const randomIndex = Math.floor(Math.random() * lifeClearMessages.length); messageTitle.textContent = `🎉 ${lifeClearMessages[randomIndex]} 🎉`; messageSubtitle.textContent = 'ひと夏のきらめき、その目に焼き付けて。'; commentType = 'life-clear'; } generateComment(commentType); messageSubtitle.classList.remove('hidden'); resetButton.classList.remove('hidden'); }
+        function resetSimulation() { clearInterval(gameInterval); gameState = 'waiting'; selectedMode = ''; particles = []; starFragments = []; canvas.style.cursor = 'default'; messageScreen.classList.remove('hidden'); modeSelection.classList.remove('hidden'); gameUI.classList.add('hidden'); starModeStats.classList.add('hidden'); resetButton.classList.add('hidden'); commentArea.classList.add('hidden'); messageTitle.textContent = 'バーチャル線香花火'; messageSubtitle.classList.add('hidden'); }
+        starModeButton.addEventListener('click', () => { selectedMode = 'star'; modeSelection.classList.add('hidden'); messageSubtitle.textContent = 'クリックして開始'; messageSubtitle.classList.remove('hidden'); });
+        lifeModeButton.addEventListener('click', () => { selectedMode = 'life'; modeSelection.classList.add('hidden'); messageSubtitle.textContent = 'クリックして開始'; messageSubtitle.classList.remove('hidden'); });
+        canvas.addEventListener('click', () => { if(gameState === 'waiting' && selectedMode) startGame(); });
+        resetButton.addEventListener('click', resetSimulation);
+        window.addEventListener('mousemove', updateMousePosition); window.addEventListener('touchmove', updateMousePosition, { passive: false });
+        resetSimulation();
+        animate();
+    </script>
+</body>
+</html>

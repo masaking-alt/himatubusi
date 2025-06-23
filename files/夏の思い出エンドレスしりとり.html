@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夏の思い出エンドレスしりとり</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Mochiy Pop One', sans-serif; background: linear-gradient(to bottom, #87ceeb, #a1c4fd); }
+        .chat-bubble { max-width: 75%; }
+        .chat-bubble.player { background-color: #fef08a; color: #b45309; }
+        .chat-bubble.ai { background-color: #ffffff; color: #1e3a8a; }
+        .chat-bubble.system { background-color: #6b7280; color: #ffffff; font-size: 0.875rem; text-align: center; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-lg mx-auto bg-white/50 rounded-2xl shadow-2xl flex flex-col h-[80vh]">
+        <header class="p-4 bg-blue-500 text-white text-center rounded-t-2xl shadow-lg">
+            <h1 class="text-2xl font-bold">夏の思い出エンドレスしりとり</h1>
+        </header>
+        
+        <div id="chat-container" class="flex-grow p-4 overflow-y-auto space-y-4"></div>
+        
+        <footer class="p-4 bg-white/80 rounded-b-2xl">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-gray-700">次の文字: <span id="next-char" class="text-2xl font-bold text-rose-500"></span></p>
+                <p class="text-gray-700">ターン: <span id="turn-count" class="font-bold">0</span></p>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="word-input" class="flex-grow px-4 py-2 rounded-lg shadow-inner" placeholder="ひらがなで入力">
+                <button id="send-button" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-6 py-2 rounded-lg shadow-lg">送信</button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const nextCharEl = document.getElementById('next-char');
+        const turnCountEl = document.getElementById('turn-count');
+        const wordInput = document.getElementById('word-input');
+        const sendButton = document.getElementById('send-button');
+
+        let gameState = 'waiting';
+        let wordHistory = [];
+        let currentWord = '';
+        let currentKana = '';
+        let turn = 0;
+        const smallToLargeKana = { 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お'};
+
+        function addMessage(sender, text) {
+            const bubble = document.createElement('div');
+            const isPlayer = sender === 'player';
+            bubble.className = `chat-bubble p-3 rounded-xl shadow ${isPlayer ? 'player self-end' : 'ai self-start'}`;
+            if(sender === 'system') {
+                 bubble.classList.add('system', 'self-center');
+            }
+            bubble.textContent = text;
+            chatContainer.appendChild(bubble);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function getLastKana(word) {
+            let lastChar = word.slice(-1);
+            if (lastChar === 'ー') {
+                return word.slice(-2, -1);
+            }
+            return smallToLargeKana[lastChar] || lastChar;
+        }
+
+        async function startGame() {
+            sendButton.textContent = '送信';
+            sendButton.classList.remove('bg-rose-500', 'hover:bg-rose-600');
+            sendButton.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+            
+            gameState = 'playing';
+            wordHistory = [];
+            turn = 0;
+            chatContainer.innerHTML = '';
+            wordInput.disabled = false;
+            sendButton.disabled = false;
+            wordInput.placeholder = '考え中...';
+
+            addMessage('system', 'AIが最初の言葉を考えています...');
+            
+            const prompt = 'あなたはこれから「夏」をテーマにしたしりとりをします。最初の言葉を1つ、ひらがなで答えてください。語尾が「ん」で終わってはいけません。返答は必ずその単語のみで、他の言葉は一切含めないでください。';
+            const firstWord = await generateAiWord(prompt);
+            
+            if (firstWord) {
+                processNewWord('ai', firstWord);
+            } else {
+                gameOver('AIが言葉を思いつけませんでした。');
+            }
+        }
+        
+        async function handlePlayerTurn() {
+            const playerWord = wordInput.value.trim();
+            if (!playerWord || gameState !== 'playing') return;
+
+            if (!playerWord.match(/^[ぁ-んー]+$/)) { alert('ひらがなで入力してください。'); return; }
+            if (playerWord.slice(0, 1) !== currentKana) { gameOver(`「${currentKana}」から始まる言葉を入力してください。`); return; }
+            if (wordHistory.includes(playerWord)) { gameOver(`「${playerWord}」は既に出た言葉です。`); return; }
+            if (playerWord.slice(-1) === 'ん') { gameOver('「ん」で終わる言葉を使ったので、あなたの負けです。'); return; }
+
+            processNewWord('player', playerWord);
+            wordInput.value = '';
+            wordInput.disabled = true;
+            sendButton.disabled = true;
+            wordInput.placeholder = 'AIが考え中...';
+            
+            const prompt = `あなたは「夏」がテーマのしりとりをしています。直前の言葉は「${playerWord}」です。次の言葉を1つ、ひらがなで答えてください。ルール：語尾が「ん」で終わらない。既に出た言葉は使わない（${wordHistory.join(', ')}）。夏に関連する言葉を選ぶこと。返答は必ずその単語のみで、他の言葉は一切含めないでください。もし思いつかなければ「こうさん」とだけ答えてください。`;
+            const aiWord = await generateAiWord(prompt);
+            
+            if (aiWord && aiWord !== 'こうさん') {
+                processNewWord('ai', aiWord);
+                 wordInput.disabled = false;
+                 sendButton.disabled = false;
+                 wordInput.focus();
+            } else {
+                gameClear('AIが降参しました！あなたの勝利です！');
+            }
+        }
+        
+        function processNewWord(sender, word) {
+            addMessage(sender, word);
+            wordHistory.push(word);
+            currentWord = word;
+            currentKana = getLastKana(word);
+            turn++;
+            
+            nextCharEl.textContent = currentKana;
+            turnCountEl.textContent = turn;
+            wordInput.placeholder = `「${currentKana}」から始まる言葉`;
+        }
+        
+        function gameOver(reason) {
+            gameState = 'gameover';
+            addMessage('system', `ゲームオーバー！ ${reason}`);
+            wordInput.disabled = true;
+            sendButton.disabled = false;
+            sendButton.textContent = 'もう一度';
+            sendButton.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+            sendButton.classList.add('bg-rose-500', 'hover:bg-rose-600');
+        }
+
+        function gameClear(reason) {
+            gameState = 'cleared';
+            addMessage('system', `🎉 ${reason}`);
+            wordInput.disabled = true;
+            sendButton.disabled = false;
+            sendButton.textContent = 'もう一度';
+        }
+
+        // ★★★ ここからが修正箇所です ★★★
+        async function generateAiWord(prompt) {
+            // Hono APIのエンドポイントを指定します
+            const honoApiUrl = 'https://gemini-api.banbenjianggui.workers.dev/api/shiritori';
+
+            try {
+                const response = await fetch(honoApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // Hono APIにはプロンプトをそのまま送ります
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    const errorMessage = errorData?.message || `APIエラー: ${response.statusText}`;
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                
+                if (result.success && result.response) {
+                    return result.response.trim().replace(/「|」|"/g, '');
+                }
+                return null;
+
+            } catch (error) {
+                console.error("AI word generation failed:", error);
+                // エラー発生時はゲームオーバー処理に繋がるようにnullを返す
+                return null;
+            }
+        }
+        
+        sendButton.addEventListener('click', () => {
+            if (gameState === 'playing') {
+                handlePlayerTurn();
+            } else {
+                startGame();
+            }
+        });
+        
+        wordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && gameState === 'playing') {
+                handlePlayerTurn();
+            }
+        });
+
+        startGame();
+    </script>
+</body>
+</html>
