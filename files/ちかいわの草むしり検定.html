@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ちかいわの草むしり検定</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+    <style>
+        /* ゲーム全体の基本スタイル */
+        body { font-family: 'Mochiy+Pop+One', sans-serif; margin: 0; overflow: hidden; background-color: #c7e8a3; }
+        .hidden { display: none !important; }
+
+        /* --- メニュー画面 --- */
+        #menu-screen {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            width: 100vw; height: 100vh;
+            text-align: center;
+            background-image: url('image/tikaiwa/menyu/menyu.png');
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #c7e8a3;
+        }
+        #admin-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 8px 15px;
+            font-size: 0.9rem;
+            background-color: rgba(0,0,0,0.4);
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 1px solid white;
+        }
+        .creator-credit {
+            font-size: 1.5rem;
+            color: rgb(236, 95, 242);
+            margin-bottom: -10px;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
+        }
+        #menu-screen h1 {
+            font-size: 3rem;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.7);
+            margin-bottom: 25px;
+            color: rgb(236, 95, 242);
+        }
+        .menu-button {
+            font-family: 'Mochiy+Pop+One', sans-serif;
+            font-size: 1.5rem; padding: 15px 40px; margin: 10px; border-radius: 15px;
+            background-color: #fff; color: #5d493a; border: 3px solid #5d493a;
+            box-shadow: 0 5px 0 #5d493a, 0 8px 6px rgba(0,0,0,0.2);
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .menu-button:hover { transform: translateY(2px); box-shadow: 0 3px 0 #5d493a, 0 6px 4px rgba(0,0,0,0.2); }
+        .menu-button:active { transform: translateY(5px); box-shadow: 0 0px 0 #5d493a, 0 2px 2px rgba(0,0,0,0.2); }
+        .menu-button:disabled { background-color: #ccc; border-color: #999; color: #999; box-shadow: 0 5px 0 #999; cursor: not-allowed; }
+        
+        .name-input-container {
+            margin-top: 20px;
+        }
+        #name-input {
+            font-family: 'Mochiy+Pop+One', sans-serif;
+            font-size: 1.2rem;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 3px solid #5d493a;
+            background-color: rgba(255, 255, 255, 0.9);
+            text-align: center;
+            width: 300px;
+            color: #333;
+        }
+        #name-input::placeholder {
+            color: #aaa;
+            opacity: 1;
+        }
+
+        /* --- 級 表示 --- */
+        #qualification-card {
+            position: absolute;
+            top: 150px;
+            left: 300px;
+            width: 250px; 
+            height: auto;
+        }
+        #qualification-card img {
+            width: 100%;
+        }
+        #kyu-display {
+            position: absolute;
+            top: 65%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.8rem;
+            font-weight: bold;
+            color: #333;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
+        }
+        
+        /* --- 武器・道具選択欄 --- */
+        .equip-area {
+            position: absolute;
+            top: 50%;
+            width: 200px;
+            text-align: center;
+            color: #5d493a;
+        }
+        #item-selection-area {
+            left: 50%;
+            transform: translate(-650px, -20%); /* 武器欄の左に配置 */
+        }
+        #weapon-selection-area {
+            left: 50%;
+            transform: translate(-480px, -20%);
+        }
+        .equip-area h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.7);
+        }
+        .equip-box {
+            width: 120px;
+            height: 120px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 4px dashed #7a6a5a;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            margin: 0 auto;
+            padding: 5px;
+        }
+        .equip-box:hover {
+            background-color: #fff;
+            border-style: solid;
+        }
+        .equip-box img {
+            height: 60px; /* 高さを固定 */
+            object-fit: contain; /* アスペクト比を維持 */
+            margin-bottom: 5px;
+        }
+
+        /* --- ランキング表示 --- */
+        #leaderboard {
+            position: absolute;
+            top: 45%; 
+            left: 50%;
+            margin-left: 280px; 
+            transform: translateY(-50%);
+            width: 300px; 
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            border: 5px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            color: #5d493a;
+        }
+        #leaderboard h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            border-bottom: 3px dashed #5d493a;
+            padding-bottom: 10px;
+        }
+        #leaderboard ol { list-style-type: none; padding-left: 0; font-size: 1.1rem; height: 160px; } /* Height adjusted for 4 items */
+        #leaderboard li { display: flex; justify-content: space-between; align-items: center; padding: 8px 5px; border-radius: 8px; transition: background-color 0.2s; }
+        #leaderboard li:nth-child(odd) { background-color: rgba(0,0,0,0.05); }
+        #leaderboard .rank { font-weight: bold; width: 35px; text-align: left; }
+        #leaderboard .name { flex-grow: 1; text-align: left; padding-left: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #leaderboard .score { font-weight: bold; }
+        #show-all-ranks { margin-top: 15px; padding: 10px 20px; background-color: #5d493a; color: white; border-radius: 10px; cursor: pointer; border: none; box-shadow: 0 4px 0 #4a3a2e; transition: all 0.2s ease; }
+        #show-all-ranks:hover { transform: translateY(1px); box-shadow: 0 3px 0 #4a3a2e; }
+        #show-all-ranks:active { transform: translateY(4px); box-shadow: 0 0px 0 #4a3a2e; }
+
+        /* --- モーダル共通スタイル --- */
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 300; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        #ranking-modal, #admin-choice-modal, #weapon-selection-modal, #item-selection-modal, #weapon-unlock-modal, #audio-settings-modal {
+            color: #5d493a;
+        }
+        .modal-content {
+            background-color: #fdfaf3;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            border: 5px solid white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .modal-content h2 { font-size: 2.5rem; margin-bottom: 20px; }
+        #ranking-list-container { overflow-y: auto; padding-right: 15px; }
+        #ranking-list { list-style-type: none; padding-left: 0; }
+        #ranking-list li { display: flex; justify-content: space-between; align-items: center; font-size: 1.2rem; padding: 10px; border-radius: 8px; }
+        #ranking-list li:nth-child(odd) { background-color: rgba(0,0,0,0.05); }
+        #ranking-list .rank-name { display: flex; align-items: baseline; }
+        #ranking-list .score-details { text-align: right; }
+        #ranking-list .score-details .score { font-weight: bold; font-size: 1.2em; display: block; }
+        #ranking-list .score-details .sub-score { font-size: 0.8rem; color: #888; }
+        .modal-content .menu-button { margin-top: 20px; align-self: center; }
+
+        /* --- 音声設定モーダル --- */
+        #volume-sliders-container { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 350px; margin: 0 auto; padding: 10px; }
+        .volume-slider-group { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+        .volume-slider-group label { font-size: 1.2rem; font-weight: bold; width: 150px; text-align: left; }
+        .volume-slider-group input[type="range"] { flex-grow: 1; }
+
+        /* --- 武器・道具選択モーダル --- */
+        #weapon-list, #item-list { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+        .equip-option {
+            padding: 10px; border: 3px solid #5d493a; border-radius: 10px; cursor: pointer;
+            font-size: 1rem; font-weight: bold; transition: all 0.2s;
+            width: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .equip-option:hover { background-color: #5d493a; color: white; transform: scale(1.05); }
+        .equip-option img { height: 60px; margin-bottom: 5px; }
+
+        /* --- パスワード入力モーダル --- */
+        #password-modal { color: white; text-align: center; }
+        #password-modal .modal-content { background-color: #5d493a; }
+        #password-modal h3 { font-size: 1.5rem; margin-bottom: 15px; }
+        #password-input { font-family: monospace; font-size: 1.5rem; padding: 10px; width: 250px; text-align: center; border-radius: 8px; border: 2px solid white; background: rgba(0,0,0,0.5); color: white; margin-bottom: 15px; }
+        #password-error { color: #ff8a8a; }
+
+        /* --- ゲーム画面 --- */
+        #game-container { position: relative; width: 100vw; height: 100vh; background-color: #c7e8a3; overflow: hidden; }
+        #game-world { position: absolute; background-color: transparent; transition: transform 0.1s linear; transform-origin: 0 0; }
+        .game-object { position: absolute; transform: translate(-50%, -50%); }
+        #player { width: 60px; height: 60px; z-index: 100; }
+        .player-sprite { position: absolute; width: 100%; height: 100%; object-fit: contain; display: none; }
+        #chiikawa-idle-weapon { transform: scale(1.2); }
+        .player-sprite.active { display: block; }
+        #player.is-pulling { animation: pull-shake 0.4s ease-in-out; }
+        @keyframes pull-shake { 50% { transform: translate(-50%, -51%) scale(1.05); } }
+        .enemy { width: 50px; height: 50px; z-index: 90; }
+        .enemy.boss { width: 100px; height: 100px; }
+        .enemy.giant { width: 120px; height: 120px; }
+        .enemy.midBoss { width: 150px; height: 150px; }
+        .enemy-sprite { position: absolute; width: 100%; height: 100%; object-fit: contain; display: none; }
+        .enemy.defeated { animation: fade-out 0.5s forwards; }
+        @keyframes fade-out { to { opacity: 0; } }
+        .enemy.flinching { animation: flinch-shake 0.3s; }
+        @keyframes flinch-shake { 25% { transform: translate(-52%, -50%); } 50% { transform: translate(-48%, -50%); } 75% { transform: translate(-52%, -50%); } }
+        .friendly-mob { width: 80px; height: 80px; z-index: 95; pointer-events: none; }
+        .friendly-sprite { position: absolute; width: 100%; height: 100%; object-fit: contain; display: none; }
+        .friendly-sprite.active { display: block; }
+        .hp-bar-container { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 40px; height: 6px; background-color: rgba(0,0,0,0.5); border-radius: 3px; border: 1px solid #333; overflow: hidden; }
+        .enemy.boss .hp-bar-container { width: 80px; height: 8px; }
+        .enemy.giant .hp-bar-container { width: 100px; height: 10px; }
+        .enemy.midBoss .hp-bar-container { width: 120px; height: 12px; }
+        .hp-bar { width: 100%; height: 100%; background-color: #f83f3f; border-radius: 2px; transition: width 0.3s ease; }
+        #skill-effect { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; background: #fffbe4; border-radius: 50%; transform: translate(-50%, -50%) scale(0); opacity: 0.7; }
+        #player.is-skill-active #skill-effect { animation: shockwave 0.5s ease-out forwards; }
+        @keyframes shockwave { to { transform: translate(-50%, -50%) scale(30); opacity: 0; } }
+        .tree { width: 90px; height: 90px; z-index: 50; }
+        .shrub { width: 80px; height: 80px; z-index: 45; }
+        .stall { width: 120px; height: 120px; z-index: 40; }
+        .weed, .flower { width: 30px; height: 30px; z-index: 10; }
+        .bg-object { z-index: 5; opacity: 0.9; }
+        .pulled { animation: pull-animation 0.4s ease forwards; }
+        @keyframes pull-animation { to { transform: translate(-50%, -150%) scale(0); opacity: 0; } }
+        .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 300; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        .game-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 200; }
+        #score-container { position: absolute; top: 20px; left: 20px; padding: 8px 15px; background-color: rgba(0,0,0,0.4); border-radius: 10px; font-size: 1.5rem; color: white; text-shadow: 1px 1px 2px black; }
+        .sub-stats { font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
+        .sub-stats span { margin-right: 15px; }
+        .top-center-ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; color: #5d493a; text-shadow: 1px 1px 2px rgba(255,255,255,0.5); }
+        .bottom-ui { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); text-align: center; font-size: 1rem; color: #5d493a; }
+        #skill-indicator { position: absolute; bottom: 20px; right: 20px; width: 80px; height: 80px; background: rgba(0,0,0,0.4); border-radius: 50%; border: 3px solid white; transition: all 0.3s ease; display: grid; place-items: center; }
+        #skill-indicator > * { grid-column: 1; grid-row: 1; }
+        .skill-indicator-text { color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        #skill-indicator.ready { background: #ffc107; border-color: #fff; box-shadow: 0 0 15px #ffc107; }
+        #skill-indicator.ready .skill-indicator-text { color: #333; }
+        #skill-indicator.cooldown { filter: grayscale(1); }
+        #skill-key { font-size: 0.8rem; }
+        #skill-name { font-weight: bold; }
+        #skill-timer { font-size: 1.5rem; font-weight: bold; }
+        .cooldown-ring { transform: rotate(-90deg); }
+        .cooldown-ring-bg, .cooldown-ring-fg { fill: none; stroke-width: 10; }
+        .cooldown-ring-bg { stroke: rgba(255, 255, 255, 0.2); }
+        .cooldown-ring-fg { stroke: #ffeb3b; stroke-linecap: round; transition: stroke-dashoffset 0.2s linear; }
+        #skill-indicator.ready .cooldown-ring { display: none; }
+        .settings-icon { position: absolute; top: 20px; right: 20px; width: 50px; height: 50px; background-color: rgba(0,0,0,0.4); border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; pointer-events: auto; border: 2px solid white; }
+        #game-audio-icon { top: 80px; }
+        #menu-audio-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0,0,0,0.4);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            border: 2px solid white;
+            z-index: 10;
+        }
+        .settings-icon svg { width: 30px; height: 30px; }
+        #game-over-screen h2 { font-size: 4rem; color: #d9534f; text-shadow: 3px 3px 0px white; }
+        #game-over-screen p { font-size: 1.8rem; color: white; margin: 5px 0; }
+        .final-stats { background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 10px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <!-- Audio Elements for BGM and SE -->
+    <audio id="menu-bgm" src="image/tikaiwa/music/menyu.mp3" loop></audio>
+    <audio id="game-bgm" src="image/tikaiwa/music/game.mp3" loop></audio>
+    <audio id="skill-se" src="image/tikaiwa/music/sukiru.mp3"></audio>
+    <audio id="game-over-se" src="image/tikaiwa/music/naku.mp3"></audio>
+
+    <div id="menu-screen">
+        <div id="admin-button">管理者</div>
+        <div id="qualification-card">
+            <img src="image/tikaiwa/menyu/sikaku.png" alt="資格証">
+            <div id="kyu-display"></div>
+        </div>
+        
+        <div id="item-selection-area" class="equip-area">
+            <h3>どうぐ</h3>
+            <div id="current-item" class="equip-box">
+                </div>
+        </div>
+        
+        <div id="weapon-selection-area" class="equip-area">
+            <h3>ぶき</h3>
+            <div id="current-weapon" class="equip-box">
+                </div>
+        </div>
+
+        <div id="menu-audio-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>
+        </div>
+
+        <div class="creator-credit">制作　扇</div>
+        <h1>ちかいわ草むしり検定</h1>
+        <div>
+            <button id="start-sanpo" class="menu-button">散歩</button>
+            <button id="start-practice" class="menu-button">練習</button>
+            <button id="start-test" class="menu-button">検定</button>
+        </div>
+        <div class="name-input-container">
+            <input type="text" id="name-input" maxlength="10">
+        </div>
+        <div id="leaderboard">
+            <h2>ランキング</h2>
+            <ol id="top-ranks"></ol>
+            <button id="show-all-ranks">すべて</button>
+        </div>
+    </div>
+
+    <div id="ranking-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>全ランキング</h2>
+            <div id="ranking-list-container">
+                <ol id="ranking-list"></ol>
+            </div>
+            <button id="close-ranking-modal" class="menu-button">閉じる</button>
+        </div>
+    </div>
+    
+    <div id="item-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>どうぐ選択</h2>
+            <div id="item-list" class="equip-list">
+                </div>
+            <button id="close-item-modal" class="menu-button">閉じる</button>
+        </div>
+    </div>
+
+    <div id="weapon-selection-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>ぶき選択</h2>
+            <div id="weapon-list" class="equip-list">
+                </div>
+            <button id="close-weapon-modal" class="menu-button">閉じる</button>
+        </div>
+    </div>
+    
+    <div id="weapon-unlock-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 id="unlock-message"></h2>
+            <img id="unlocked-weapon-image" src="" alt="新しい装備" style="max-height: 150px; margin: 20px auto; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));">
+            <p id="unlocked-weapon-name" style="font-size: 1.8rem; font-weight: bold;"></p>
+            <button id="close-unlock-modal" class="menu-button">やったー！</button>
+        </div>
+    </div>
+
+    <div id="admin-choice-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>管理者モード選択</h2>
+            <div>
+                <button id="admin-practice" class="menu-button">練習用</button>
+                <button id="admin-test" class="menu-button">検定用</button>
+            </div>
+             <button id="close-admin-choice-modal" class="menu-button">閉じる</button>
+        </div>
+    </div>
+
+    <div id="password-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="background-color: #5d493a; color: white;">
+            <h3>管理者パスワード</h3>
+            <input type="password" id="password-input">
+            <div class="flex justify-center mt-4">
+                <button id="password-back" class="menu-button" style="font-size: 1.2rem; padding: 10px 30px;">戻る</button>
+                <button id="password-submit" class="menu-button" style="font-size: 1.2rem; padding: 10px 30px;">決定</button>
+            </div>
+            <p id="password-error" class="hidden" style="margin-top: 10px;">パスワードが違います</p>
+        </div>
+    </div>
+    
+    <div id="audio-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>音声</h2>
+            <div id="volume-sliders-container"></div>
+            <button id="close-audio-settings" class="menu-button">閉じる</button>
+        </div>
+    </div>
+
+
+    <div id="game-container" class="hidden">
+        <div id="game-world">
+            <div id="player" class="game-object">
+                <img id="chiikawa-idle" class="player-sprite active" src="image/tikaiwa/image/tati.png" alt="キャラクター 立ち姿">
+                <img id="chiikawa-walk" class="player-sprite" src="image/tikaiwa/hasiri/hasiri.png" alt="キャラクター 歩き姿">
+                <img id="chiikawa-walk-reverse" class="player-sprite" src="image/tikaiwa/hasiri/hasirihantai.png" alt="キャラクター 逆向き歩き姿">
+                <img id="chiikawa-pull" class="player-sprite" src="image/tikaiwa/image/kusanuki.png" alt="キャラクター 草むしり">
+                <img id="chiikawa-cry" class="player-sprite" src="image/tikaiwa/image/nakitati.png" alt="キャラクター 泣き顔 右向き">
+                <img id="chiikawa-cry-reverse" class="player-sprite" src="image/tikaiwa/image/nakitatihantai.png" alt="キャラクター 泣き顔 左向き">
+                <img id="chiikawa-naku" class="player-sprite" src="image/tikaiwa/image/naku.png" alt="キャラクター 泣き顔1">
+                <img id="chiikawa-wanwan" class="player-sprite" src="image/tikaiwa/image/wanwan.png" alt="キャラクター 泣き顔2">
+                <img id="chiikawa-yaruzo" class="player-sprite" src="image/tikaiwa/image/yaruzo.png" alt="キャラクター やるぞ">
+                <img id="chiikawa-idle-weapon" class="player-sprite" src="image/tikaiwa/buki/bukitati.png" alt="武器 立ち姿">
+                <img id="chiikawa-scared-left-weapon" class="player-sprite" src="image/tikaiwa/buki/bukihidari.png" alt="武器 怯え左">
+                <img id="chiikawa-scared-right-weapon" class="player-sprite" src="image/tikaiwa/buki/bukimigi.png" alt="武器 怯え右">
+                <div id="skill-effect"></div>
+            </div>
+        </div>
+        <div class="game-overlay">
+            <div class="top-center-ui"><h1 class="text-4xl font-bold">ちかいわ草むしり検定</h1></div>
+            <div id="score-container">
+                <div>スコア: <span id="score">0</span> P</div>
+                <div class="sub-stats">
+                    <span>雑草: <span id="weed-count">0</span></span>
+                    <span>討伐: <span id="enemy-count">0</span></span>
+                </div>
+            </div>
+            <div class="bottom-ui">
+                <p>WASD/矢印: 移動 | Space/Enter/左クリック: 草むしり | Shift: スキル</p>
+                <p>I/O: ズーム | P: ズームリセット</p>
+            </div>
+            <div id="skill-indicator" class="ready">
+                <svg class="cooldown-ring" width="80" height="80" viewBox="0 0 100 100">
+                    <circle class="cooldown-ring-bg" cx="50" cy="50" r="45" /><circle class="cooldown-ring-fg" cx="50" cy="50" r="45" />
+                </svg>
+                <div class="skill-indicator-text">
+                    <span id="skill-key">Shift</span><span id="skill-name">ヤハ！</span><span id="skill-timer" style="display: none;"></span>
+                </div>
+            </div>
+            <div id="settings-icon" class="settings-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M19.479,10.092c-0.262-0.94-0.635-1.822-1.116-2.651l1.5-1.5c0.391-0.391,0.391-1.023,0-1.414l-1.414-1.414 c-0.391-0.391-1.023-0.391-1.414,0l-1.5,1.5c-0.828-0.481-1.71-0.854-2.651-1.116C12.333,3.021,12.176,3,12,3 s-0.333,0.021-0.479,0.071c-0.94,0.262-1.822,0.635-2.651,1.116l-1.5-1.5c-0.391-0.391-1.023-0.391-1.414,0L4.543,4.095 c-0.391,0.391-0.391,1.023,0,1.414l1.5,1.5c-0.481,0.828-0.854,1.71-1.116,2.651C4.875,9.667,4.854,9.824,4.854,10 s0.021,0.333,0.071,0.479c0.262,0.94,0.635,1.822,1.116,2.651l-1.5,1.5c-0.391-0.391-0.391,1.023,0,1.414l1.414,1.414 c0.391,0.391,1.023,0.391,1.414,0l1.5-1.5c0.828-0.481,1.71,0.854,2.651,1.116C9.667,18.979,9.824,19,10,19s0.333-0.021,0.479,0.071 c0.94-0.262,1.822-0.635,2.651,1.116l1.5,1.5c0.391,0.391,1.023,0.391,1.414,0l1.414-1.414c0.391-0.391,0.391-1.023,0-1.414 l-1.5-1.5c0.481-0.828,0.854-1.71,1.116-2.651C19.125,10.333,19.146,10.176,19.146,10S19.125,9.667,19.078,9.521z M12,14 c-1.105,0-2-0.895-2-2s0.895-2,2-2s2,0.895,2,2S13.105,14,12,14z"></path></svg>
+            </div>
+            <div id="game-audio-icon" class="settings-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path></svg>
+            </div>
+        </div>
+        <div id="pause-menu" class="overlay-screen hidden">
+            <button id="resume-game" class="menu-button">ゲームに戻る⤵</button><button id="back-to-menu" class="menu-button">メニュー</button>
+        </div>
+        <div id="game-over-screen" class="overlay-screen hidden">
+            <h2>GAME OVER</h2>
+            <div class="final-stats">
+                <p>スコア: <span id="final-score">0</span> P</p>
+                <p>抜いた草: <span id="final-weed-count">0</span>本</p>
+                <p>討伐数: <span id="final-enemy-count">0</span>体</p>
+            </div>
+            <div style="margin-top: 20px;">
+                <button id="continue-button" class="menu-button">コンティニュー</button>
+                <button id="game-over-menu-button" class="menu-button">メニュー</button>
+            </div>
+        </div>
+    </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- HTML要素の取得 ---
+    const menuScreen = document.getElementById('menu-screen'), gameContainer = document.getElementById('game-container'), gameWorld = document.getElementById('game-world'), player = document.getElementById('player'), scoreDisplay = document.getElementById('score'), skillIndicator = document.getElementById('skill-indicator'), skillKey = document.getElementById('skill-key'), skillName = document.getElementById('skill-name'), skillTimer = document.getElementById('skill-timer'), cooldownRingFg = document.querySelector('.cooldown-ring-fg');
+    const weedCountDisplay = document.getElementById('weed-count'), enemyCountDisplay = document.getElementById('enemy-count');
+    const nameInput = document.getElementById('name-input');
+    const pauseMenu = document.getElementById('pause-menu'), gameOverScreen = document.getElementById('game-over-screen'), finalScoreDisplay = document.getElementById('final-score');
+    const finalWeedCountDisplay = document.getElementById('final-weed-count'), finalEnemyCountDisplay = document.getElementById('final-enemy-count');
+    const startSanpoButton = document.getElementById('start-sanpo'), startPracticeButton = document.getElementById('start-practice'), startTestButton = document.getElementById('start-test'), settingsIcon = document.getElementById('settings-icon'), resumeGameButton = document.getElementById('resume-game'), backToMenuButton = document.getElementById('back-to-menu'), continueButton = document.getElementById('continue-button'), gameOverMenuButton = document.getElementById('game-over-menu-button');
+    const adminButton = document.getElementById('admin-button'), passwordModal = document.getElementById('password-modal'), passwordInput = document.getElementById('password-input'), passwordSubmit = document.getElementById('password-submit'), passwordError = document.getElementById('password-error'), passwordBackButton = document.getElementById('password-back');
+    const playerSprites = { 
+        idle: document.getElementById('chiikawa-idle'), 
+        walk: document.getElementById('chiikawa-walk'), 
+        walkReverse: document.getElementById('chiikawa-walk-reverse'), 
+        pull: document.getElementById('chiikawa-pull'), 
+        cry: document.getElementById('chiikawa-cry'), 
+        cryReverse: document.getElementById('chiikawa-cry-reverse'), 
+        naku: document.getElementById('chiikawa-naku'), 
+        wanwan: document.getElementById('chiikawa-wanwan'), 
+        yaruzo: document.getElementById('chiikawa-yaruzo'),
+        idleWeapon: document.getElementById('chiikawa-idle-weapon'),
+        scaredLeftWeapon: document.getElementById('chiikawa-scared-left-weapon'),
+        scaredRightWeapon: document.getElementById('chiikawa-scared-right-weapon')
+    };
+    const rankingModal = document.getElementById('ranking-modal'), topRanksList = document.getElementById('top-ranks'), allRanksList = document.getElementById('ranking-list'), showAllRanksButton = document.getElementById('show-all-ranks'), closeRankingModalButton = document.getElementById('close-ranking-modal');
+    const kyuDisplay = document.getElementById('kyu-display');
+    const adminChoiceModal = document.getElementById('admin-choice-modal');
+    const adminPracticeButton = document.getElementById('admin-practice');
+    const adminTestButton = document.getElementById('admin-test');
+    const closeAdminChoiceModalButton = document.getElementById('close-admin-choice-modal');
+    const currentWeaponDisplay = document.getElementById('current-weapon');
+    const weaponSelectionModal = document.getElementById('weapon-selection-modal');
+    const closeWeaponModalButton = document.getElementById('close-weapon-modal');
+    const weaponList = document.getElementById('weapon-list');
+    const weaponUnlockModal = document.getElementById('weapon-unlock-modal');
+    const unlockMessage = document.getElementById('unlock-message');
+    const closeUnlockModalButton = document.getElementById('close-unlock-modal');
+    const unlockedWeaponImage = document.getElementById('unlocked-weapon-image');
+    const unlockedWeaponName = document.getElementById('unlocked-weapon-name');
+    const currentItemDisplay = document.getElementById('current-item');
+    const itemSelectionModal = document.getElementById('item-selection-modal');
+    const closeItemModalButton = document.getElementById('close-item-modal');
+    const itemList = document.getElementById('item-list');
+    const menuBgm = document.getElementById('menu-bgm');
+    const gameBgm = document.getElementById('game-bgm');
+    const skillSe = document.getElementById('skill-se');
+    const gameOverSe = document.getElementById('game-over-se');
+    const audioSettingsModal = document.getElementById('audio-settings-modal');
+    const menuAudioIcon = document.getElementById('menu-audio-icon');
+    const gameAudioIcon = document.getElementById('game-audio-icon');
+    const closeAudioSettingsButton = document.getElementById('close-audio-settings');
+    const volumeSlidersContainer = document.getElementById('volume-sliders-container');
+
+    // --- ゲームの状態管理 ---
+    let isPaused = true, isGameOver = false, animationFrameId, lastFrameTime = 0, currentGameMode = 'none', playerName = '';
+    let adminModeType = '';
+    let gameStartTime = 0;
+    let isMidBossActive = false;
+    let midBossTimer = null;
+    let hasMidBossSpawned = false;
+    let isPausedByAudioSettings = false;
+    
+    // --- 装備マスターリスト ---
+    const WEAPON_MASTER_LIST = {
+        'sasumata': { name: 'さすまた', image: 'image/tikaiwa/buki/buki.png', description: '攻撃力1.5倍、スキルクールダウン-1秒' }
+    };
+    const ITEM_MASTER_LIST = {
+        'kuma-pochette': { name: 'くまさんポシェット', image: 'image/tikaiwa/buki/kuma.png', description: '草むしり範囲が広がり、一度に複数抜ける。硬直も少し減る。' }
+    };
+
+    // --- ゲームの設定値 ---
+    const PULL_STIFFNESS_BASE = 400;
+    const PULL_RADIUS_BASE = 50;
+    const PLAYER_SPEED = 2, PLAYER_RADIUS = 30, SCARED_DISTANCE = 150, WORLD_WIDTH = 3000, WORLD_HEIGHT = 2500;
+    const BASE_WEED_COUNT = 125, MAX_WEED_COUNT = 225;
+    const FLOWER_COUNT = 10, BG_HANA_COUNT = 5, BG_KUSA_COUNT = 5, TREE_COUNT = 8, SHRUB_COUNT = 15, BORDER_MARGIN = 80, DEFAULT_ZOOM = 1.0, ZOOM_STEP = 0.1, MAX_ZOOM = 2.0, MIN_ZOOM = 0.5;
+    const SKILL_COOLDOWN_SECONDS = 6;
+    const SKILL_RADIUS = 180, BASE_SKILL_DAMAGE = 50;
+    const BASE_ENEMY_HP = 100, ENEMY_SPEED = 0.9, ENEMY_RADIUS = 25, ENEMY_SPAWN_INTERVAL = 10000, MAX_ENEMIES = 3, ENEMY_ANIMATION_INTERVAL = 80;
+    const BASE_BOSS_HP = 300, BOSS_SPEED = 0.7, BOSS_RADIUS = 50, BOSS_SPAWN_INTERVAL = 60000, MAX_BOSSES = 2;
+    const BASE_GIANT_HP = 1000, GIANT_SPEED = 0.6, GIANT_RADIUS = 60, GIANT_SPAWN_INTERVAL = 180000;
+    const MID_BOSS_SPAWN_TIME = 600000; // 10 minutes for first spawn
+    const MID_BOSS_RESPAWN_TIME = 1200000; // 20 minutes for respawn
+    const MID_BOSS_STOP_DISTANCE = 250;
+    const MID_BOSS_CHARGE_DELAY = 3000;
+    const MID_BOSS_CHARGE_SPEED = 4.5;
+    const PLAYER_ANIMATION_SPEED = 300;
+    const FRIENDLY_MOB_ANIMATION_INTERVAL = 200;
+
+    // --- ゲームの状態変数 ---
+    let cameraZoom, isSkillReady, skillCooldownInterval, score, playerState, keysPressed, weeds, flowers, enemies, enemySpawnInterval, bossSpawnInterval, giantSpawnInterval, weedCount, enemyDefeatedCount, currentSkillDamage, enemyHpBonus, currentMaxWeeds, currentSkillCooldown, currentPullRadius, currentPullStiffness;
+    let usagiMob = null, hachiwareMob = null;
+    let playerFrame, playerAnimationTimer;
+
+    const ringRadius = cooldownRingFg.r.baseVal.value, ringCircumference = 2 * Math.PI * ringRadius;
+    cooldownRingFg.style.strokeDasharray = `${ringCircumference} ${ringCircumference}`;
+    cooldownRingFg.style.strokeDashoffset = ringCircumference;
+    const placeholderNames = ['ちいかわ', 'ハチワレ', 'うさぎ', 'モモンガ', 'くりまんじゅう', 'ラッコ', 'シーサー'];
+    
+    // --- 音声制御 ---
+    const audioMap = {
+        menuBgm: { el: menuBgm, label: 'メニューBGM' },
+        gameBgm: { el: gameBgm, label: 'ゲームBGM' },
+        skillSe: { el: skillSe, label: 'スキル' },
+        gameOverSe: { el: gameOverSe, label: 'ゲームオーバー' },
+    };
+
+    const getVolumeSettings = () => {
+        const settings = localStorage.getItem('chiikawaVolumeSettings');
+        return settings ? JSON.parse(settings) : { menuBgm: 100, gameBgm: 100, skillSe: 100, gameOverSe: 100 };
+    };
+
+    const saveVolumeSettings = (settings) => {
+        localStorage.setItem('chiikawaVolumeSettings', JSON.stringify(settings));
+    };
+
+    const applyVolumeSettings = () => {
+        const volumes = getVolumeSettings();
+        for (const key in volumes) {
+            if (audioMap[key]) {
+                audioMap[key].el.volume = volumes[key] / 100;
+            }
+        }
+    };
+    
+    function playMenuBGM() {
+        stopAllBGM(); 
+        const playPromise = menuBgm.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn("メニューBGMの再生にはユーザーの操作が必要です: ", error);
+            });
+        }
+    }
+
+    function playGameBGM() {
+        stopAllBGM();
+        const playPromise = gameBgm.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn("ゲームBGMの再生にはユーザーの操作が必要です: ", error);
+            });
+        }
+    }
+
+    function stopAllBGM() {
+        menuBgm.pause();
+        menuBgm.currentTime = 0;
+        gameBgm.pause();
+        gameBgm.currentTime = 0;
+    }
+
+    function stopGameOverSound() {
+        gameOverSe.pause();
+        gameOverSe.currentTime = 0;
+    }
+    
+    function createVolumeSlider(key) {
+        const volumes = getVolumeSettings();
+        const group = document.createElement('div');
+        group.className = 'volume-slider-group';
+        
+        const label = document.createElement('label');
+        label.setAttribute('for', `${key}-volume`);
+        label.textContent = audioMap[key].label;
+        
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.id = `${key}-volume`;
+        slider.min = 0;
+        slider.max = 100;
+        slider.value = volumes[key];
+        
+        slider.addEventListener('input', (e) => {
+            const newVolume = e.target.value;
+            audioMap[key].el.volume = newVolume / 100;
+            const currentVolumes = getVolumeSettings();
+            currentVolumes[key] = newVolume;
+            saveVolumeSettings(currentVolumes);
+        });
+        
+        group.appendChild(label);
+        group.appendChild(slider);
+        return group;
+    }
+
+    function openAudioSettings(context) {
+        volumeSlidersContainer.innerHTML = '';
+        const keysToShow = context === 'menu' 
+            ? ['menuBgm']
+            : ['gameBgm', 'skillSe', 'gameOverSe'];
+        
+        keysToShow.forEach(key => {
+            if (audioMap[key]) {
+                volumeSlidersContainer.appendChild(createVolumeSlider(key));
+            }
+        });
+
+        audioSettingsModal.classList.remove('hidden');
+    }
+
+    // --- 装備関連の関数 ---
+    const getUnlockedWeapons = () => JSON.parse(localStorage.getItem('chiikawaUnlockedWeapons')) || [];
+    const saveUnlockedWeapons = (weapons) => localStorage.setItem('chiikawaUnlockedWeapons', JSON.stringify(weapons));
+    const getSelectedWeapon = () => localStorage.getItem('chiikawaSelectedWeapon') || 'none';
+    const saveSelectedWeapon = (weaponId) => localStorage.setItem('chiikawaSelectedWeapon', weaponId);
+    
+    const getUnlockedItems = () => JSON.parse(localStorage.getItem('chiikawaUnlockedItems')) || [];
+    const saveUnlockedItems = (items) => localStorage.setItem('chiikawaUnlockedItems', JSON.stringify(items));
+    const getSelectedItem = () => localStorage.getItem('chiikawaSelectedItem') || 'none';
+    const saveSelectedItem = (itemId) => localStorage.setItem('chiikawaSelectedItem', itemId);
+
+    function updateEquippedDisplay(type) {
+        const displayEl = type === 'weapon' ? currentWeaponDisplay : currentItemDisplay;
+        const selectedId = type === 'weapon' ? getSelectedWeapon() : getSelectedItem();
+        const masterList = type === 'weapon' ? WEAPON_MASTER_LIST : ITEM_MASTER_LIST;
+
+        displayEl.innerHTML = ''; 
+        if (selectedId === 'none' || !masterList[selectedId]) {
+            displayEl.innerHTML = `<span>装備なし</span>`;
+        } else {
+            const equip = masterList[selectedId];
+            displayEl.innerHTML = `<img src="${equip.image}" alt="${equip.name}"><span>${equip.name}</span>`;
+        }
+    }
+
+    function updateEquipListUI(type) {
+        const listEl = type === 'weapon' ? weaponList : itemList;
+        const unlocked = type === 'weapon' ? getUnlockedWeapons() : getUnlockedItems();
+        const masterList = type === 'weapon' ? WEAPON_MASTER_LIST : ITEM_MASTER_LIST;
+
+        listEl.innerHTML = '';
+        
+        const noneOption = document.createElement('div');
+        noneOption.className = 'equip-option';
+        noneOption.dataset[type] = 'none';
+        noneOption.innerHTML = '<span>装備なし</span>';
+        noneOption.title = '特別な効果はありません。';
+        listEl.appendChild(noneOption);
+
+        unlocked.forEach(equipId => {
+            if (masterList[equipId]) {
+                const equip = masterList[equipId];
+                const option = document.createElement('div');
+                option.className = 'equip-option';
+                option.dataset[type] = equipId;
+                option.innerHTML = `<img src="${equip.image}" alt="${equip.name}"><span>${equip.name}</span>`;
+                option.title = equip.description; 
+                listEl.appendChild(option);
+            }
+        });
+
+        document.querySelectorAll(`#${type}-list .equip-option`).forEach(option => {
+            option.addEventListener('click', () => {
+                const equipId = option.dataset[type];
+                if (type === 'weapon') {
+                    saveSelectedWeapon(equipId);
+                } else if (type === 'item') {
+                    saveSelectedItem(equipId);
+                }
+                
+                updateEquippedDisplay(type);
+                
+                if (type === 'weapon') {
+                    weaponSelectionModal.classList.add('hidden');
+                } else {
+                    itemSelectionModal.classList.add('hidden');
+                }
+            });
+        });
+    }
+
+    // --- イベントリスナーの設定 ---
+    nameInput.addEventListener('input', e => { playerName = e.target.value; });
+    startSanpoButton.addEventListener('click', () => { currentGameMode = 'sanpo'; startGame(); });
+    startPracticeButton.addEventListener('click', () => { currentGameMode = 'practice'; startGame(); });
+    startTestButton.addEventListener('click', () => { currentGameMode = 'test'; startGame(); });
+    settingsIcon.addEventListener('click', () => pauseGame(true));
+    resumeGameButton.addEventListener('click', resumeGame);
+    backToMenuButton.addEventListener('click', backToMenu);
+    continueButton.addEventListener('click', () => {
+        stopGameOverSound();
+        gameOverScreen.classList.add('hidden');
+        setPlayerSprite('yaruzo');
+        setTimeout(() => {
+            startGame();
+        }, 1000);
+    });
+    gameOverMenuButton.addEventListener('click', backToMenu);
+    adminButton.addEventListener('click', () => adminChoiceModal.classList.remove('hidden'));
+    closeAdminChoiceModalButton.addEventListener('click', () => adminChoiceModal.classList.add('hidden'));
+    adminPracticeButton.addEventListener('click', () => { adminModeType = 'admin-practice'; adminChoiceModal.classList.add('hidden'); passwordModal.classList.remove('hidden'); passwordInput.focus(); });
+    adminTestButton.addEventListener('click', () => { adminModeType = 'admin-test'; adminChoiceModal.classList.add('hidden'); passwordModal.classList.remove('hidden'); passwordInput.focus(); });
+    passwordSubmit.addEventListener('click', () => { if (passwordInput.value === 'SUMK1449') { passwordModal.classList.add('hidden'); passwordInput.value = ''; passwordError.classList.add('hidden'); currentGameMode = adminModeType; startGame(); } else { passwordError.classList.remove('hidden'); passwordInput.value = ''; } });
+    passwordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); passwordSubmit.click(); } });
+    passwordBackButton.addEventListener('click', () => { passwordModal.classList.add('hidden'); adminChoiceModal.classList.remove('hidden'); });
+    showAllRanksButton.addEventListener('click', () => rankingModal.classList.remove('hidden'));
+    closeRankingModalButton.addEventListener('click', () => rankingModal.classList.add('hidden'));
+    currentWeaponDisplay.addEventListener('click', () => { updateEquipListUI('weapon'); weaponSelectionModal.classList.remove('hidden'); });
+    closeWeaponModalButton.addEventListener('click', () => weaponSelectionModal.classList.add('hidden'));
+    currentItemDisplay.addEventListener('click', () => { updateEquipListUI('item'); itemSelectionModal.classList.remove('hidden'); });
+    closeItemModalButton.addEventListener('click', () => itemSelectionModal.classList.add('hidden'));
+    
+    const defaultCloseUnlockHandler = () => {
+        weaponUnlockModal.classList.add('hidden');
+    };
+    closeUnlockModalButton.addEventListener('click', defaultCloseUnlockHandler);
+
+
+    menuAudioIcon.addEventListener('click', () => openAudioSettings('menu'));
+    gameAudioIcon.addEventListener('click', () => {
+        if (!isPaused) {
+            isPausedByAudioSettings = true;
+            pauseGame(false); 
+        }
+        openAudioSettings('game');
+    });
+    closeAudioSettingsButton.addEventListener('click', () => {
+        audioSettingsModal.classList.add('hidden');
+        if (isPausedByAudioSettings) {
+            resumeGame();
+        }
+    });
+
+    window.addEventListener('keydown', e => { if (isPaused) return; keysPressed[(e.key || e.code).toLowerCase()] = true; handleAction(e); });
+    window.addEventListener('keyup', e => { if (isPaused) return; keysPressed[(e.key || e.code).toLowerCase()] = false; });
+    window.addEventListener('mousedown', e => { if (isPaused) return; handleMouseDown(e); });
+    window.addEventListener('contextmenu', e => e.preventDefault());
+
+    // --- 級システム & ランキング機能 ---
+    const getScores = () => JSON.parse(localStorage.getItem('chiikawaScores')) || [];
+    const saveScore = (name, score, weeds, enemies) => {
+        const scores = getScores();
+        scores.push({ name, score, weeds, enemies, date: new Date().toISOString() });
+        scores.sort((a, b) => b.score - a.score);
+        localStorage.setItem('chiikawaScores', JSON.stringify(scores));
+    };
+    const getKyu = () => {
+        const allScores = getScores();
+        if (allScores.length === 0) return 'なし';
+        
+        const maxWeeds = allScores.reduce((max, score) => Math.max(max, score.weeds || 0), 0);
+
+        if (maxWeeds >= 10000) return '初段';
+        if (maxWeeds >= 5000) return '１級';
+        if (maxWeeds >= 2500) return '２級';
+        if (maxWeeds >= 1000) return '３級';
+        if (maxWeeds >= 500) return '４級';
+        if (maxWeeds >= 100) return '５級';
+        return 'なし'; 
+    };
+    
+    const displayKyu = () => { kyuDisplay.textContent = getKyu(); };
+    const displayLeaderboard = () => {
+        const scores = getScores();
+        topRanksList.innerHTML = ''; allRanksList.innerHTML = '';
+        if (scores.length === 0) { const msg = '<li>まだ記録がありません</li>'; topRanksList.innerHTML = msg; allRanksList.innerHTML = msg; return; }
+        scores.forEach((s, index) => {
+            const rank = index + 1, name = s.name || 'ななし', scoreVal = s.score, weedsVal = s.weeds || 0, enemiesVal = s.enemies || 0;
+            const topItem = `<li><span class="rank">${rank}位</span><span class="name">${name}</span><span class="score">${scoreVal} P</span></li>`;
+            const allItem = `<li><div class="rank-name"><span class="rank">${rank}位</span><span class="name">${name}</span></div><div class="score-details"><span class="score">${scoreVal} P</span><span class="sub-score">草:${weedsVal} | 討:${enemiesVal}</span></div></li>`;
+            if (index < 4) { // Changed to display top 4
+                topRanksList.innerHTML += topItem;
+            }
+            allRanksList.innerHTML += allItem;
+        });
+    };
+    
+    // --- 初期表示処理 ---
+    function initializeMenu() {
+        displayLeaderboard();
+        displayKyu();
+        updateEquipListUI('weapon');
+        updateEquipListUI('item');
+        updateEquippedDisplay('weapon');
+        updateEquippedDisplay('item');
+        nameInput.placeholder = placeholderNames[Math.floor(Math.random() * placeholderNames.length)];
+    }
+    
+    function showUnlockSequentially(queue, index = 0) {
+        if (index >= queue.length) {
+            initializeMenu();
+            return;
+        }
+        
+        const unlock = queue[index];
+        const masterList = unlock.type === 'item' ? ITEM_MASTER_LIST : WEAPON_MASTER_LIST;
+        const equip = masterList[unlock.id];
+        unlockMessage.textContent = `新しい${unlock.type === 'item' ? 'どうぐ' : 'ぶき'}をてにいれた！`;
+        unlockedWeaponImage.src = equip.image;
+        unlockedWeaponName.textContent = equip.name;
+        
+        const showNext = () => {
+            weaponUnlockModal.classList.add('hidden');
+            showUnlockSequentially(queue, index + 1);
+        };
+        
+        closeUnlockModalButton.removeEventListener('click', defaultCloseUnlockHandler);
+        closeUnlockModalButton.addEventListener('click', showNext, {once: true});
+        
+        weaponUnlockModal.classList.remove('hidden');
+    }
+
+    function handlePostGameUnlocks() {
+        const unlockQueue = [];
+        const allScores = getScores();
+
+        const unlockedItems = getUnlockedItems();
+        if (!unlockedItems.includes('kuma-pochette') && allScores.some(s => s.weeds >= 500)) {
+            unlockQueue.push({id: 'kuma-pochette', type: 'item'});
+            unlockedItems.push('kuma-pochette');
+            saveUnlockedItems(unlockedItems);
+        }
+        
+        const unlockedWeapons = getUnlockedWeapons();
+        if (!unlockedWeapons.includes('sasumata') && allScores.some(s => s.enemies >= 50)) {
+            unlockQueue.push({id: 'sasumata', type: 'weapon'});
+            unlockedWeapons.push('sasumata');
+            saveUnlockedWeapons(unlockedWeapons);
+        }
+        
+        stopAllBGM();
+        stopGameOverSound();
+        isPaused = true; 
+        isGameOver = false; 
+        cancelAnimationFrame(animationFrameId);
+        clearTimeout(midBossTimer);
+        gameContainer.classList.add('hidden'); 
+        pauseMenu.classList.add('hidden'); 
+        gameOverScreen.classList.add('hidden'); 
+        menuScreen.classList.remove('hidden'); 
+        passwordModal.classList.add('hidden'); 
+        adminChoiceModal.classList.add('hidden');
+
+        if (unlockQueue.length > 0) {
+            showUnlockSequentially(unlockQueue);
+        } else {
+            initializeMenu();
+        }
+        playMenuBGM();
+    }
+
+
+    // --- ゲーム進行の制御 ---
+    function pauseGame(showMenu) { 
+        if (isPaused || isGameOver) return; 
+        isPaused = true; 
+        keysPressed = {};
+        gameBgm.pause();
+        if (showMenu) {
+            pauseMenu.classList.remove('hidden');
+        }
+        if (skillCooldownInterval) clearInterval(skillCooldownInterval);
+    }
+    function resumeGame() { 
+        if (!isPaused || isGameOver) return; 
+        isPaused = false; 
+        isPausedByAudioSettings = false;
+        gameBgm.play();
+        pauseMenu.classList.add('hidden'); 
+        if (skillTimer.style.display === 'block') { 
+            startSkillCooldown(parseInt(skillTimer.textContent)); 
+        } 
+        lastFrameTime = 0; 
+        requestAnimationFrame(gameLoop); 
+    }
+    function startGame() { 
+        playGameBGM();
+        playerName = nameInput.value.trim() || nameInput.placeholder;
+        resetGameState(); 
+        menuScreen.classList.add('hidden'); 
+        gameContainer.classList.remove('hidden'); 
+        initGameWorld(); 
+        isPaused = false; 
+        lastFrameTime = 0; 
+        gameStartTime = Date.now();
+        if (currentGameMode !== 'sanpo' && !hasMidBossSpawned) {
+             midBossTimer = setTimeout(spawnMidBoss, MID_BOSS_SPAWN_TIME);
+        }
+        requestAnimationFrame(gameLoop); 
+    }
+    function backToMenu() {
+        if (currentGameMode === 'test' || currentGameMode === 'admin-test') {
+            saveScore(playerName, score, weedCount, enemyDefeatedCount);
+            handlePostGameUnlocks(); 
+        } else {
+            stopAllBGM();
+            stopGameOverSound();
+            playMenuBGM();
+            isPaused = true; 
+            isGameOver = false; 
+            cancelAnimationFrame(animationFrameId);
+            clearTimeout(midBossTimer);
+            gameContainer.classList.add('hidden'); 
+            pauseMenu.classList.add('hidden'); 
+            gameOverScreen.classList.add('hidden'); 
+            menuScreen.classList.remove('hidden'); 
+            passwordModal.classList.add('hidden'); 
+            adminChoiceModal.classList.add('hidden');
+            
+            initializeMenu();
+        }
+    }
+    function triggerGameOver() {
+        if (isGameOver || currentGameMode.includes('admin')) return;
+        stopAllBGM();
+        gameOverSe.play();
+        isGameOver = true; isPaused = true;
+        clearTimeout(midBossTimer); 
+        
+        setPlayerSprite('naku');
+        setTimeout(() => {
+            setPlayerSprite('wanwan');
+            setTimeout(() => {
+                finalScoreDisplay.textContent = score;
+                finalWeedCountDisplay.textContent = weedCount;
+                finalEnemyCountDisplay.textContent = enemyDefeatedCount;
+                gameOverScreen.classList.remove('hidden');
+            }, 500);
+        }, 500);
+    }
+    function resetGameState() {
+        isGameOver = false; isMidBossActive = false; hasMidBossSpawned = false;
+        const objectsToRemove = Array.from(gameWorld.children).filter(child => child.id !== 'player');
+        objectsToRemove.forEach(child => gameWorld.removeChild(child));
+        score = 0; playerState = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 }; keysPressed = {}; weeds = []; flowers = []; enemies = []; cameraZoom = DEFAULT_ZOOM; isSkillReady = true;
+        weedCount = 0; enemyDefeatedCount = 0;
+        
+        currentSkillDamage = BASE_SKILL_DAMAGE;
+        currentSkillCooldown = SKILL_COOLDOWN_SECONDS;
+        currentPullRadius = PULL_RADIUS_BASE;
+        currentPullStiffness = PULL_STIFFNESS_BASE;
+
+        if (getSelectedItem() === 'kuma-pochette') {
+            currentPullRadius *= 1.4;
+            currentPullStiffness -= 150;
+        }
+        if (getSelectedWeapon() === 'sasumata') {
+            currentSkillDamage *= 1.5;
+            currentSkillCooldown -= 1;
+        }
+        
+        enemyHpBonus = 0; currentMaxWeeds = BASE_WEED_COUNT;
+        playerFrame = 0; playerAnimationTimer = 0; gameStartTime = 0;
+        if (usagiMob && usagiMob.el) usagiMob.el.remove();
+        if (hachiwareMob && hachiwareMob.el) hachiwareMob.el.remove();
+        usagiMob = null; hachiwareMob = null;
+        clearTimeout(midBossTimer);
+        if (skillCooldownInterval) clearInterval(skillCooldownInterval);
+        
+        scoreDisplay.textContent = score; weedCountDisplay.textContent = weedCount; enemyCountDisplay.textContent = enemyDefeatedCount;
+        player.style.left = `${playerState.x}px`; player.style.top = `${playerState.y}px`;
+        skillIndicator.classList.add('ready'); skillIndicator.classList.remove('cooldown'); skillKey.style.display = 'block'; skillName.style.display = 'block'; skillTimer.style.display = 'none';
+        cooldownRingFg.style.strokeDashoffset = ringCircumference;
+        pauseMenu.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+    }
+
+    function initGameWorld() { gameWorld.style.width = `${WORLD_WIDTH}px`; gameWorld.style.height = `${WORLD_HEIGHT}px`; createStalls(); createTrees(); createShrubs(); for (let i = 0; i < BG_KUSA_COUNT; i++) createBgObject('kusa'); for(let i = 0; i < BG_HANA_COUNT; i++) createBgObject('hana'); if (currentGameMode !== 'none') { for (let i = 0; i < currentMaxWeeds; i++) createWeed(); for (let i = 0; i < FLOWER_COUNT; i++) createFlower(); } if (currentGameMode !== 'sanpo') { startEnemySpawner(); startBossSpawner(); startGiantSpawner(); } }
+    function startEnemySpawner() { if (isMidBossActive) return; if (enemySpawnInterval) clearInterval(enemySpawnInterval); enemySpawnInterval = setInterval(() => { if (isPaused || isGameOver || isMidBossActive) return; const smallEnemies = enemies.filter(e => e.type === 'small'); if (smallEnemies.length < MAX_ENEMIES) { spawnEnemy('small'); } }, ENEMY_SPAWN_INTERVAL); }
+    function startBossSpawner() { if (isMidBossActive) return; if (bossSpawnInterval) clearInterval(bossSpawnInterval); bossSpawnInterval = setInterval(() => { if (isPaused || isGameOver || isMidBossActive) return; const bossCount = enemies.filter(e => e.type === 'boss').length; if (bossCount < MAX_BOSSES) { spawnEnemy('boss'); } }, BOSS_SPAWN_INTERVAL); }
+    function startGiantSpawner() { if (isMidBossActive) return; if (giantSpawnInterval) clearInterval(giantSpawnInterval); giantSpawnInterval = setInterval(() => { if (isPaused || isGameOver || isMidBossActive) return; const giantExists = enemies.some(e => e.type === 'giant'); if (!giantExists) { spawnEnemy('giant'); clearInterval(bossSpawnInterval); setTimeout(() => { if (isPaused || isGameOver) return; startBossSpawner(); }, 60000); } }, GIANT_SPAWN_INTERVAL); }
+    
+    function spawnMidBoss() {
+        if (isGameOver || isMidBossActive || hasMidBossSpawned) return;
+        if (isPaused) {
+            midBossTimer = setTimeout(spawnMidBoss, 1000);
+            return;
+        }
+        hasMidBossSpawned = true;
+        isMidBossActive = true;
+        clearInterval(enemySpawnInterval);
+        clearInterval(bossSpawnInterval);
+        clearInterval(giantSpawnInterval);
+        spawnEnemy('midBoss');
+    }
+
+    function spawnFriendlyMob(type) { let mobRef = (type === 'usagi') ? usagiMob : hachiwareMob; if (mobRef) return; let pos; const otherMob = (type === 'usagi') ? hachiwareMob : usagiMob; let isOverlapping; do { isOverlapping = false; pos = getRandomPositionForFriendly(); if (otherMob) { const dist = Math.sqrt((pos.x - otherMob.x)**2 + (pos.y - otherMob.y)**2); if (dist < 100) { isOverlapping = true; } } } while (isOverlapping); const el = document.createElement('div'); el.className = 'game-object friendly-mob'; const frames = []; const imgPath = `image/tikaiwa/${type}/`; for (let i = 1; i <= 4; i++) { const img = document.createElement('img'); img.src = `${imgPath}${i}.png`; img.className = 'friendly-sprite'; el.appendChild(img); frames.push(img); } frames[0].classList.add('active'); el.style.left = `${pos.x}px`; el.style.top = `${pos.y}px`; gameWorld.appendChild(el); const newMob = { ...pos, el, frames, currentFrame: 0, animationTimer: 0 }; if (type === 'usagi') usagiMob = newMob; else hachiwareMob = newMob; }
+    function updateFriendlyMob(mob, deltaTime) { if (!mob) return; mob.animationTimer += deltaTime; if (mob.animationTimer > FRIENDLY_MOB_ANIMATION_INTERVAL) { mob.animationTimer = 0; mob.currentFrame = (mob.currentFrame + 1) % mob.frames.length; mob.frames.forEach((frame, index) => { frame.classList.toggle('active', index === mob.currentFrame); }); } }
+    function spawnEnemy(type) { let pos; do { pos = getRandomPosition(); } while (Math.sqrt((pos.x - playerState.x)**2 + (pos.y - playerState.y)**2) < 250); const enemyEl = document.createElement('div'); enemyEl.className = `game-object enemy ${type}`; const enemyData = { 'small': { hp: BASE_ENEMY_HP, radius: ENEMY_RADIUS, speed: ENEMY_SPEED, defeatScore: 5, frameCount: 3, leftPath: 'image/tikaiwa/abunai/abunai', rightPath: 'image/tikaiwa/abunai/gyaku', defeatFrame: 'image/tikaiwa/abunai/yarareru.png', defeatFrameReverse: 'image/tikaiwa/abunai/yarareruhantai.png'}, 'boss': { hp: BASE_BOSS_HP, radius: BOSS_RADIUS, speed: BOSS_SPEED, defeatScore: 50, frameCount: 3, leftPath: 'image/tikaiwa/dekaabu/6.', rightPath: 'image/tikaiwa/dekaabu/6.', rightSuffix: 'gyaku', defeatFrame: null, defeatFrameReverse: null}, 'giant': { hp: BASE_GIANT_HP, radius: GIANT_RADIUS, speed: GIANT_SPEED, defeatScore: 100, frameCount: 5, leftPath: 'image/tikaiwa/asi/asi', rightPath: 'image/tikaiwa/asi/asig', defeatFrame: null, defeatFrameReverse: null}, 'midBoss': { hp: 3000, radius: 75, speed: BOSS_SPEED - 0.1, defeatScore: 250, frameCount: 4, leftPath: 'image/tikaiwa/majo/hh', rightPath: 'image/tikaiwa/majo/mh', stopLeftPath: 'image/tikaiwa/majo/ht', stopRightPath: 'image/tikaiwa/majo/mt', defeatFrame: 'image/tikaiwa/midboss/down.png', defeatFrameReverse: 'image/tikaiwa/midboss/down.png'} }; const config = enemyData[type]; const frameData = { left: [], right: [], defeat: [], defeatReverse: [] }; for (let i = 1; i <= config.frameCount; i++) { const leftImg = document.createElement('img'); leftImg.src = `${config.leftPath}${i}.png`; leftImg.className = 'enemy-sprite'; enemyEl.appendChild(leftImg); frameData.left.push(leftImg); const rightImg = document.createElement('img'); rightImg.src = `${config.rightPath}${i}${config.rightSuffix || ''}.png`; rightImg.className = 'enemy-sprite'; enemyEl.appendChild(rightImg); frameData.right.push(rightImg); } if (type === 'midBoss') { frameData.stopLeft = []; frameData.stopRight = []; for (let i = 1; i <= config.frameCount; i++) { const stopLeftImg = document.createElement('img'); stopLeftImg.src = `${config.stopLeftPath}${i}.png`; stopLeftImg.className = 'enemy-sprite'; enemyEl.appendChild(stopLeftImg); frameData.stopLeft.push(stopLeftImg); const stopRightImg = document.createElement('img'); stopRightImg.src = `${config.stopRightPath}${i}.png`; stopRightImg.className = 'enemy-sprite'; enemyEl.appendChild(stopRightImg); frameData.stopRight.push(stopRightImg); } } if(config.defeatFrame) { const defeatImg = document.createElement('img'); defeatImg.src = config.defeatFrame; defeatImg.className = 'enemy-sprite'; enemyEl.appendChild(defeatImg); frameData.defeat.push(defeatImg); if (config.defeatFrameReverse) { const defeatReverseImg = document.createElement('img'); defeatReverseImg.src = config.defeatFrameReverse; defeatReverseImg.className = 'enemy-sprite'; enemyEl.appendChild(defeatReverseImg); frameData.defeatReverse.push(defeatReverseImg); } } const hpBarContainer = document.createElement('div'); hpBarContainer.className = 'hp-bar-container'; const hpBar = document.createElement('div'); hpBar.className = 'hp-bar'; hpBarContainer.appendChild(hpBar); enemyEl.appendChild(hpBarContainer); frameData.left[0].style.display = 'block'; enemyEl.style.left = `${pos.x}px`; enemyEl.style.top = `${pos.y}px`; gameWorld.appendChild(enemyEl); const newEnemy = { ...pos, el: enemyEl, type: type, hp: config.hp + enemyHpBonus, maxHp: config.hp + enemyHpBonus, radius: config.radius, speed: config.speed, defeatScore: config.defeatScore, hpBarEl: hpBar, isDefeated: false, frames: frameData, animationTimer: 0, currentFrame: 0, isFlinching: false, flinchUntil: 0, state: type === 'midBoss' ? 'chasing' : null, chargeTimer: 0, chargeTarget: null }; if (type === 'midBoss') { newEnemy.hp = config.hp; newEnemy.maxHp = config.hp; } enemies.push(newEnemy); }
+    function setPlayerSprite(state){ Object.values(playerSprites).forEach(s => s.classList.remove('active')); if(playerSprites[state]) playerSprites[state].classList.add('active'); else playerSprites.idle.classList.add('active'); }
+    function cleanupEnemies() { enemies = enemies.filter(enemy => { if (enemy.isDefeated) { if (Date.now() - enemy.timeOfDeath > 500) { if (enemy.el.parentNode) enemy.el.remove(); return false; } } return true; }); }
+    function defeatEnemy(enemy) {
+        if (enemy.isDefeated) return;
+        enemy.isDefeated = true;
+        enemy.timeOfDeath = Date.now();
+        score += enemy.defeatScore;
+        scoreDisplay.textContent = score;
+        enemyDefeatedCount++;
+        enemyCountDisplay.textContent = enemyDefeatedCount;
+        if(enemyDefeatedCount > 0 && enemyDefeatedCount % 5 === 0) currentMaxWeeds = Math.min(MAX_WEED_COUNT, currentMaxWeeds + 5);
+        
+        if (enemy.type === 'midBoss') {
+            isMidBossActive = false;
+            startEnemySpawner();
+            startBossSpawner();
+            startGiantSpawner();
+            midBossTimer = setTimeout(() => {
+                hasMidBossSpawned = false; // Allow respawn
+                spawnMidBoss();
+            }, MID_BOSS_RESPAWN_TIME);
+        }
+
+        Object.values(enemy.frames).flat().forEach(sprite => { if(sprite) sprite.style.display = 'none'; });
+        const isFacingLeft = playerState.x < enemy.x;
+        if (isFacingLeft) {
+            if (enemy.frames.defeat && enemy.frames.defeat.length > 0 && enemy.frames.defeat[0]) enemy.frames.defeat[0].style.display = 'block';
+        } else {
+            if (enemy.frames.defeatReverse && enemy.frames.defeatReverse.length > 0 && enemy.frames.defeatReverse[0]) enemy.frames.defeatReverse[0].style.display = 'block';
+            else if (enemy.frames.defeat && enemy.frames.defeat.length > 0 && enemy.frames.defeat[0]) enemy.frames.defeat[0].style.display = 'block';
+        }
+        if (enemy.el.querySelector('.hp-bar-container')) enemy.el.querySelector('.hp-bar-container').style.display = 'none';
+        enemy.el.classList.remove('flinching');
+        enemy.el.classList.add('defeated');
+    }
+    function handleMouseDown(e){ if (e.button === 0) { e.preventDefault(); if (player.classList.contains('is-pulling')) return; performPull(); } }
+    function handleAction(e){ const key = (e.key || e.code).toLowerCase(); if (key === ' ' || key === 'enter') { e.preventDefault(); if (player.classList.contains('is-pulling')) return; performPull(); } if (key === 'shift') { e.preventDefault(); activateSkill(); } if (key === 'i') { cameraZoom = Math.min(MAX_ZOOM, cameraZoom + ZOOM_STEP); e.preventDefault(); } if (key === 'o') { cameraZoom = Math.max(MIN_ZOOM, cameraZoom - ZOOM_STEP); e.preventDefault(); } if (key === 'p') { cameraZoom = DEFAULT_ZOOM; e.preventDefault(); } }
+    function performPull() {
+        if (player.classList.contains('is-pulling')) return;
+        
+        let pulledSomething = false;
+
+        if (getSelectedItem() === 'kuma-pochette') {
+            [...weeds].forEach(weed => {
+                if (weed.el.classList.contains('pulled')) return;
+                const dx = playerState.x - weed.x;
+                const dy = playerState.y - weed.y;
+                if (Math.sqrt(dx * dx + dy * dy) < currentPullRadius) {
+                    score += 1; weedCount++;
+                    removeAndRespawn(weed, weeds, createWeed, false);
+                    pulledSomething = true;
+                }
+            });
+        } else {
+            const closestWeed = findClosestObject(weeds);
+            if (closestWeed && closestWeed.distance < currentPullRadius) {
+                score += 1; weedCount++;
+                removeAndRespawn(closestWeed.obj, weeds, createWeed, false);
+                pulledSomething = true;
+            }
+        }
+        
+        if (pulledSomething) {
+            triggerPullAnimation();
+            scoreDisplay.textContent = score;
+            weedCountDisplay.textContent = weedCount;
+            if (weedCount > 0 && weedCount % 10 === 0) currentSkillDamage += 5;
+            if (weedCount > 0 && weedCount % 300 === 0) enemyHpBonus += 300;
+            return;
+        }
+
+        const closestFlower = findClosestObject(flowers);
+        if (closestFlower && closestFlower.distance < currentPullRadius) {
+            triggerPullAnimation();
+            score -= 5;
+            scoreDisplay.textContent = score;
+            removeAndRespawn(closestFlower.obj, flowers, createFlower);
+        }
+    }
+    function activateSkill() {
+        if (!isSkillReady) return;
+        skillSe.currentTime = 0;
+        skillSe.play();
+        isSkillReady = false;
+        player.classList.add('is-skill-active');
+        setTimeout(() => player.classList.remove('is-skill-active'), 500);
+        if (currentGameMode !== 'sanpo') {
+            enemies.forEach(enemy => {
+                if (enemy.isDefeated) return;
+                const dx = playerState.x - enemy.x;
+                const dy = playerState.y - enemy.y;
+                if (Math.sqrt(dx * dx + dy * dy) < SKILL_RADIUS) {
+                    enemy.hp -= currentSkillDamage;
+                    if(enemy.type === 'small') {
+                        enemy.isFlinching = true;
+                        enemy.flinchUntil = Date.now() + 300;
+                        enemy.el.classList.add('flinching');
+                    }
+                    if (enemy.hp <= 0) defeatEnemy(enemy);
+                }
+            });
+            updateAllHpBars();
+        }
+        weeds.forEach(weed => {
+            if (weed.el.classList.contains('pulled')) return;
+            const dx = playerState.x - weed.x;
+            const dy = playerState.y - weed.y;
+            if (Math.sqrt(dx*dx + dy*dy) < SKILL_RADIUS) {
+                score++;
+                weedCount++;
+                if (weedCount > 0 && weedCount % 10 === 0) currentSkillDamage += 5;
+                if (weedCount > 0 && weedCount % 300 === 0) enemyHpBonus += 300;
+                removeAndRespawn(weed, weeds, createWeed, false);
+            }
+        });
+        scoreDisplay.textContent = score;
+        weedCountDisplay.textContent = weedCount;
+        startSkillCooldown();
+    }
+    function updateAllHpBars() { enemies.forEach(enemy => { if (enemy.isDefeated || !enemy.hpBarEl) return; const hpPercent = Math.max(0, (enemy.hp / enemy.maxHp) * 100); enemy.hpBarEl.style.width = `${hpPercent}%`; }); }
+    function startSkillCooldown(startTime) {
+        let cooldown = startTime || currentSkillCooldown;
+        skillIndicator.classList.remove('ready'); skillIndicator.classList.add('cooldown'); skillKey.style.display = 'none'; skillName.style.display = 'none'; skillTimer.style.display = 'block';
+        const updateDisplay = () => {
+            skillTimer.textContent = cooldown;
+            const progress = cooldown / currentSkillCooldown;
+            const offset = ringCircumference * (1 - progress);
+            cooldownRingFg.style.strokeDashoffset = offset;
+        };
+        updateDisplay();
+        if (skillCooldownInterval) clearInterval(skillCooldownInterval);
+        skillCooldownInterval = setInterval(() => {
+            if (isPaused) { clearInterval(skillCooldownInterval); return; }
+            cooldown--;
+            updateDisplay();
+            if (cooldown <= 0) {
+                isSkillReady = true;
+                clearInterval(skillCooldownInterval);
+                skillIndicator.classList.add('ready');
+                skillIndicator.classList.remove('cooldown');
+                skillKey.style.display = 'block';
+                skillName.style.display = 'block';
+                skillTimer.style.display = 'none';
+            }
+        }, 1000);
+    }
+    function triggerPullAnimation(){ 
+        player.classList.add('is-pulling'); 
+        setTimeout(() => { 
+            player.classList.remove('is-pulling'); 
+        }, currentPullStiffness); 
+    }
+    function removeAndRespawn(obj, array, createFunc, updateScore = true){ if (!obj || !obj.el) return; obj.el.classList.add('pulled'); if (updateScore) { scoreDisplay.textContent = score; } const index = array.indexOf(obj); if (index > -1) array.splice(index, 1); setTimeout(() => { if(obj.el && obj.el.parentNode) { obj.el.remove(); } createFunc(); }, 400); }
+    function findClosestObject(objectArray){ let closest = null; let minDistance = Infinity; objectArray.forEach(obj => { if (!obj || !obj.el || obj.el.classList.contains('pulled')) return; const dx = playerState.x - obj.x; const dy = playerState.y - obj.y; const distance = Math.sqrt(dx * dx + dy * dy); if (distance < minDistance) { minDistance = distance; closest = { obj, distance }; } }); return closest; }
+    function createTrees(){ for (let i = 0; i < TREE_COUNT; i++) { const pos = getRandomPositionInPlayableArea(); spawnTree(pos.x, pos.y) } }
+    function spawnTree(x, y){ const e = document.createElement('div'); e.className = 'game-object tree'; e.innerHTML = `<img src="image/tikaiwa/haikei/ki.png" style="width:100%; height:100%; object-fit:contain; filter: drop-shadow(2px 3px 2px #00000022);">`; e.style.left = `${x}px`; e.style.top = `${y}px`; gameWorld.appendChild(e) }
+    function createShrubs(){ for (let i = 0; i < SHRUB_COUNT; i++) { const pos = getRandomPositionInPlayableArea(); spawnShrub(pos.x, pos.y) } }
+    function spawnShrub(x, y){ const e = document.createElement('div'); e.className = 'game-object shrub'; e.innerHTML = `<img src="image/tikaiwa/haikei/teiboku.png" style="width:100%; height:100%; object-fit:contain; filter: drop-shadow(2px 3px 2px #00000022);">`; e.style.left = `${x}px`; e.style.top = `${y}px`; gameWorld.appendChild(e) }
+    function createStalls(){ const t=['takoyaki','apple','yakisoba','choco_banana','cotton_candy'],s=130,r=()=>t[Math.floor(Math.random()*t.length)];for(let x=0;x<WORLD_WIDTH;x+=s){spawnStall(x,BORDER_MARGIN,r());spawnStall(x,WORLD_HEIGHT-BORDER_MARGIN,r())}for(let y=BORDER_MARGIN+s;y<WORLD_HEIGHT-BORDER_MARGIN;y+=s){spawnStall(BORDER_MARGIN,y,r());spawnStall(WORLD_WIDTH-BORDER_MARGIN,y,r())}}
+    function spawnStall(x,y,t){const e=document.createElement('div');e.className='game-object stall';const s=['#d9534f','#f0ad4e','#5bc0de','#5cb85c','#ff8c94','#9b59b6','#3498db'],c=['#ffffff','#fff5e1'],o=s[Math.floor(Math.random()*s.length)],a=c[Math.floor(Math.random()*c.length)];let l='';switch(t){case'takoyaki':l='<circle cx="50" cy="25" r="10" fill="#a13333"/><path d="M50 35 Q 40 45, 50 55 Q 60 45, 50 35" fill="#a13333"/>';break;case'apple':l='<path d="M50 15 A 15 15 0 1 1 50 45 A 15 15 0 1 1 50 15 M 50 15 L 55 5" stroke="#d9534f" stroke-width="4" fill="#d9534f"/>';break;case'yakisoba':l='<path d="M30 20 C 40 10, 60 30, 70 20 M30 30 C 40 20, 60 40, 70 30 M30 40 C 40 30, 60 50, 70 40" stroke="#a1662f" stroke-width="3" fill="none" stroke-linecap="round"/>';break;case'choco_banana':l='<path d="M50,15 A 10 25 0 0 1 50 65 A 10 25 0 0 1 50 15 Z" fill="#663300" /><path d="M50,15 A 10 25 0 0 0 50 65" fill="#e6c400" />';break;case'cotton_candy':l='<circle cx="50" cy="35" r="20" fill="#ffeff2"/><circle cx="40" cy="30" r="15" fill="#fdeaf0"/><circle cx="60" cy="40" r="15" fill="#fdeaf0"/>';break}e.innerHTML=createStallSVG(o,a,l);e.style.left=`${x}px`;e.style.top=`${y+(Math.random()-.5)*10}px`;gameWorld.appendChild(e)}
+    function createStallSVG(c,s,m){return`<svg viewBox="0 0 100 100"><g filter="drop-shadow(3px 5px 2px #00000033)"><rect x="10" y="50" width="8" height="50" fill="#c4a381"/><rect x="82" y="50" width="8" height="50" fill="#c4a381"/><path d="M 0 50 L 100 50 L 80 30 L 20 30 Z" fill="${c}"/><rect x="0" y="30" width="20" height="20" fill="${s}"/><rect x="40" y="30" width="20" height="20" fill="${s}"/><rect x="80" y="30" width="20" height="20" fill="${s}"/><rect x="5" y="70" width="90" height="10" fill="#e6c4a1"/><rect x="25" y="55" width="50" height="25" fill="#fffaf0" stroke="#c4a381" stroke-width="2"/><g transform="translate(0, 5) scale(0.5)">${m}</g></g></svg>`}
+    function createBgObject(type) { for (let i=0; i < (type === 'kusa' ? BG_KUSA_COUNT : BG_HANA_COUNT); i++) { const e = document.createElement('div'); e.className = 'game-object bg-object'; e.innerHTML = `<img src="image/tikaiwa/haikei/${type}.png" style="width:${Math.random()*20+20}px; height:auto; opacity:${Math.random()*0.5+0.5};">`; const pos = getRandomPosition(); e.style.left = `${pos.x}px`; e.style.top = `${pos.y}px`; gameWorld.insertBefore(e, player); } }
+    function createWeed(){ if(weeds.length >= currentMaxWeeds) return; const p=getRandomPositionInPlayableArea();const e=document.createElement('div');e.className='game-object weed';e.innerHTML=`<svg viewBox="0 0 30 40"><path d="M15 40 Q 20 20, 10 10" stroke="#006400" fill="none" stroke-width="4" stroke-linecap="round"/><path d="M15 40 Q 10 25, 20 15" stroke="#006400" fill="none" stroke-width="4" stroke-linecap="round"/></svg>`;e.style.left=`${p.x}px`;e.style.top=`${p.y}px`;gameWorld.appendChild(e);weeds.push({...p,el:e})}
+    function createFlower(){ const p=getRandomPositionInPlayableArea();const e=document.createElement('div');e.className='game-object flower';e.innerHTML=`<img src="image/tikaiwa/haikei/nukeruhana.png" style="width:100%; height:100%; object-fit:contain;">`;e.style.left=`${p.x}px`;e.style.top=`${p.y}px`;gameWorld.appendChild(e);flowers.push({...p,el:e})}
+    function getRandomPosition(){ const x=BORDER_MARGIN+Math.random()*(WORLD_WIDTH-BORDER_MARGIN*2);const y=BORDER_MARGIN+Math.random()*(WORLD_HEIGHT-BORDER_MARGIN*2);return{x,y}}
+    function getRandomPositionInPlayableArea() { const playableMargin = BORDER_MARGIN + 100; const x = playableMargin + Math.random() * (WORLD_WIDTH - playableMargin * 2); const y = playableMargin + Math.random() * (WORLD_HEIGHT - playableMargin * 2); return {x, y}; }
+    function getRandomPositionForFriendly(){ const margin = BORDER_MARGIN + 200; const x = margin + Math.random()*(WORLD_WIDTH - margin*2); const y = margin + Math.random()*(WORLD_HEIGHT - margin*2); return {x,y};}
+    
+    function gameLoop(timestamp) {
+        if (isPaused) { cancelAnimationFrame(animationFrameId); return; }
+        let deltaTime = 0;
+        if (lastFrameTime > 0) { deltaTime = timestamp - lastFrameTime; }
+        lastFrameTime = timestamp;
+
+        const elapsedTime = Date.now() - gameStartTime;
+        if (!hachiwareMob && elapsedTime >= 60000) spawnFriendlyMob('hatiware');
+        if (!usagiMob && elapsedTime >= 180000) spawnFriendlyMob('usagi');
+
+        let dx=0,dy=0;
+        if (keysPressed['w']||keysPressed['arrowup'])dy-=1; if (keysPressed['s']||keysPressed['arrowdown'])dy+=1; if (keysPressed['a']||keysPressed['arrowleft'])dx-=1; if (keysPressed['d']||keysPressed['arrowright'])dx+=1;
+        
+        const isMoving = dx !== 0 || dy !== 0;
+        const isCurrentlyPulling = player.classList.contains('is-pulling');
+
+        let closestEnemy = null;
+        let minEnemyDist = Infinity;
+        if (enemies.length > 0 && (currentGameMode !== 'sanpo')) {
+            enemies.forEach(enemy => {
+                if (enemy.isDefeated) return;
+                const dx_e = playerState.x - enemy.x, dy_e = playerState.y - enemy.y;
+                const distance = Math.sqrt(dx_e * dx_e + dy_e * dy_e);
+                if (distance < minEnemyDist) {
+                    minEnemyDist = distance;
+                    closestEnemy = enemy;
+                }
+            });
+        }
+        
+        let playerSpriteState;
+        if (isCurrentlyPulling) {
+            playerSpriteState = 'pull';
+        } else if (!isMoving && closestEnemy && minEnemyDist < SCARED_DISTANCE) {
+            playerSpriteState = 'scared';
+        } else if (isMoving) {
+            playerSpriteState = 'moving';
+        } else {
+            playerSpriteState = 'idle';
+        }
+
+        switch (playerSpriteState) {
+            case 'pull': setPlayerSprite('pull'); break;
+            case 'scared':
+                if (getSelectedWeapon() === 'sasumata') {
+                    if (closestEnemy.x >= playerState.x) setPlayerSprite('scaredRightWeapon');
+                    else setPlayerSprite('scaredLeftWeapon');
+                } else {
+                    if (closestEnemy.x >= playerState.x) setPlayerSprite('cry');
+                    else setPlayerSprite('cryReverse');
+                }
+                break;
+            case 'moving':
+                playerAnimationTimer += deltaTime;
+                if (playerAnimationTimer > PLAYER_ANIMATION_SPEED) {
+                    playerAnimationTimer = 0;
+                    playerFrame = 1 - playerFrame;
+                }
+                if (playerFrame === 0) setPlayerSprite('walk');
+                else setPlayerSprite('walkReverse');
+                break;
+            default: // idle
+                if (getSelectedWeapon() === 'sasumata') {
+                    setPlayerSprite('idleWeapon');
+                } else {
+                    setPlayerSprite('idle');
+                }
+                playerAnimationTimer = 0;
+                break;
+        }
+
+        if (isMoving && !isCurrentlyPulling) {
+            const magnitude = Math.sqrt(dx*dx + dy*dy) || 1;
+            playerState.x += (dx / magnitude) * PLAYER_SPEED;
+            playerState.y += (dy / magnitude) * PLAYER_SPEED;
+        }
+
+        const g=BORDER_MARGIN+100;
+        playerState.x=Math.max(g,Math.min(WORLD_WIDTH-g,playerState.x));
+        playerState.y=Math.max(g,Math.min(WORLD_HEIGHT-g,playerState.y));
+        player.style.left=`${playerState.x}px`;
+        player.style.top=`${playerState.y}px`;
+        
+        if (currentGameMode !== 'sanpo') updateEnemies(deltaTime);
+        updateFriendlyMob(usagiMob, deltaTime);
+        updateFriendlyMob(hachiwareMob, deltaTime);
+        cleanupEnemies();
+
+        const cX=-playerState.x*cameraZoom+gameContainer.clientWidth/2, cY=-playerState.y*cameraZoom+gameContainer.clientHeight/2;
+        gameWorld.style.transform=`translate(${cX}px, ${cY}px) scale(${cameraZoom})`;
+        
+        animationFrameId=requestAnimationFrame(gameLoop);
+    }
+    
+    function updateEnemies(deltaTime) { enemies.forEach(enemy => { if (isGameOver || enemy.isDefeated) return; if (enemy.isFlinching && Date.now() > enemy.flinchUntil) { enemy.isFlinching = false; enemy.el.classList.remove('flinching'); } if(enemy.isFlinching) return; const dx = playerState.x - enemy.x, dy = playerState.y - enemy.y, dist = Math.sqrt(dx * dx + dy * dy); let isFacingLeft = playerState.x < enemy.x; let shouldMove = true; let currentSpeed = enemy.speed; let moveTarget = { x: playerState.x, y: playerState.y }; let activeFrames = isFacingLeft ? enemy.frames.left : enemy.frames.right; let frameCount = enemy.frames.left.length; if (enemy.type === 'midBoss') { switch (enemy.state) { case 'chasing': currentSpeed *= 5; if (dist < MID_BOSS_STOP_DISTANCE) { enemy.state = 'stopping'; enemy.chargeTimer = Date.now(); } break; case 'stopping': shouldMove = false; activeFrames = isFacingLeft ? enemy.frames.stopLeft : enemy.frames.stopRight; if (Date.now() - enemy.chargeTimer > MID_BOSS_CHARGE_DELAY) { enemy.state = 'charging'; enemy.chargeTarget = { x: playerState.x, y: playerState.y }; } break; case 'charging': currentSpeed = MID_BOSS_CHARGE_SPEED; moveTarget = enemy.chargeTarget; isFacingLeft = enemy.chargeTarget.x < enemy.x; activeFrames = isFacingLeft ? enemy.frames.left : enemy.frames.right; const chargeDist = Math.sqrt((moveTarget.x - enemy.x)**2 + (moveTarget.y - enemy.y)**2); if (chargeDist < 20) enemy.state = 'chasing'; break; } } if (shouldMove) { const moveDx = moveTarget.x - enemy.x, moveDy = moveTarget.y - enemy.y, moveDist = Math.sqrt(moveDx**2 + moveDy**2); if (moveDist > 1) { enemy.x += (moveDx / moveDist) * currentSpeed; enemy.y += (moveDy / moveDist) * currentSpeed; } } if (dist < PLAYER_RADIUS + enemy.radius) { triggerGameOver(); return; } enemy.hpBarEl.style.width = `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%`; enemy.el.style.left = `${enemy.x}px`; enemy.el.style.top = `${enemy.y}px`; enemy.animationTimer += deltaTime; const animInterval = enemy.type === 'boss' ? 200 : (enemy.type === 'giant' ? 150 : (enemy.type === 'midBoss' ? 120 : ENEMY_ANIMATION_INTERVAL)); if (enemy.animationTimer > animInterval) { enemy.animationTimer = 0; enemy.currentFrame = (enemy.currentFrame + 1) % frameCount; } Object.values(enemy.frames).flat().forEach(sprite => { if(sprite) sprite.style.display = 'none'; }); if (activeFrames[enemy.currentFrame]) activeFrames[enemy.currentFrame].style.display = 'block'; }); for (let i = 0; i < enemies.length; i++) { if (enemies[i].isDefeated) continue; for (let j = i + 1; j < enemies.length; j++) { if (enemies[j].isDefeated) continue; const enemyA = enemies[i], enemyB = enemies[j]; const dx = enemyB.x - enemyA.x, dy = enemyB.y - enemyA.y, dist = Math.sqrt(dx*dx + dy*dy), minDist = enemyA.radius + enemyB.radius; if (dist < minDist) { const overlap = minDist - dist, ax = dist === 0 ? 1 : dx / dist, ay = dist === 0 ? 0 : dy / dist; enemyA.x -= ax * overlap / 2; enemyA.y -= ay * overlap / 2; enemyB.x += ax * overlap / 2; enemyB.y += ay * overlap / 2; } } } }
+    
+    // Initial UI setup and audio setup on load
+    applyVolumeSettings();
+    initializeMenu();
+
+    // Add a one-time listener to start menu BGM on first user interaction
+    const startMusicOnFirstInteraction = () => {
+        playMenuBGM();
+    };
+    document.body.addEventListener('click', startMusicOnFirstInteraction, { once: true });
+    document.body.addEventListener('keydown', startMusicOnFirstInteraction, { once: true });
+});
+</script>
+</body>
+</html>

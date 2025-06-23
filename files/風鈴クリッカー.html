@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>風鈴クリッカー</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kaisei+Opti&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kaisei Opti', serif;
+            background: linear-gradient(to bottom, #a1c4fd, #c2e9fb);
+        }
+        .wind-chime {
+            cursor: pointer;
+            transition: transform 0.1s ease-out;
+        }
+        .wind-chime:active {
+            transform: scale(0.95);
+        }
+        .swing {
+            animation: swing-animation 1.5s ease-in-out;
+        }
+        @keyframes swing-animation {
+            0%, 100% { transform: rotate(0deg); }
+            20% { transform: rotate(15deg); }
+            40% { transform: rotate(-10deg); }
+            60% { transform: rotate(5deg); }
+            80% { transform: rotate(-5deg); }
+        }
+        .upgrade-button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .floating-number {
+            position: absolute;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1d4ed8;
+            pointer-events: none;
+            animation: float-up 1s ease-out forwards;
+        }
+        @keyframes float-up {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- 左側：クリッカーエリア -->
+        <div class="md:col-span-2 bg-white/50 p-8 rounded-2xl shadow-lg flex flex-col items-center justify-center">
+            <div class="text-center">
+                <h1 class="text-4xl font-bold text-gray-800">涼しさポイント</h1>
+                <p id="points-display" class="text-6xl font-bold text-blue-700 my-4">0</p>
+                <p id="pps-display" class="text-xl text-gray-600">自動: 0 ポイント/秒</p>
+            </div>
+            <div id="wind-chime-container" class="mt-8">
+                <!-- 風鈴のSVG -->
+                <svg id="wind-chime" class="wind-chime w-48 h-64" viewBox="0 0 100 150">
+                    <path d="M 20 10 C 20 50, 80 50, 80 10 L 70 10 C 70 40, 30 40, 30 10 Z" fill="#4dd0e1"/>
+                    <line x1="50" y1="50" x2="50" y2="80" stroke="#a1887f" stroke-width="2"/>
+                    <rect x="45" y="80" width="10" height="40" fill="#ffecb3" stroke="#fbc02d" stroke-width="1"/>
+                    <text x="47" y="105" font-size="12" fill="#d97706">涼</text>
+                </svg>
+            </div>
+        </div>
+
+        <!-- 右側：アップグレードエリア -->
+        <div class="bg-white/50 p-6 rounded-2xl shadow-lg">
+            <h2 class="text-3xl font-bold text-gray-800 text-center mb-4">お店</h2>
+            <div id="upgrades-container" class="space-y-3 overflow-y-auto max-h-[70vh] pr-2">
+                <!-- アップグレードはJSで生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ゲームの状態 ---
+        let points = 0;
+        let pointsPerClick = 1;
+        let pointsPerSecond = 0;
+        let upgrades = {
+            'ppc1': { name: '良い音の短冊', description: 'クリックごとのポイント +1', baseCost: 15, level: 0, type: 'ppc', value: 1 },
+            'pps1': { name: '風を起こすうちわ', description: '自動ポイント +1/秒', baseCost: 100, level: 0, type: 'pps', value: 1 },
+            'ppc2': { name: '綺麗なガラス玉', description: 'クリックごとのポイント +5', baseCost: 500, level: 0, type: 'ppc', value: 5 },
+            'pps2': { name: '風鈴の数を増やす', description: '自動ポイント +10/秒', baseCost: 1200, level: 0, type: 'pps', value: 10 },
+            'ppc3': { name: '職人の作った風鈴', description: 'クリックごとのポイント +20', baseCost: 5000, level: 0, type: 'ppc', value: 20 },
+            'pps3': { name: '縁側に吊るす', description: '自動ポイント +50/秒', baseCost: 15000, level: 0, type: 'pps', value: 50 }
+        };
+
+        // --- UI要素の取得 ---
+        const pointsDisplay = document.getElementById('points-display');
+        const ppsDisplay = document.getElementById('pps-display');
+        const windChime = document.getElementById('wind-chime');
+        const windChimeContainer = document.getElementById('wind-chime-container');
+        const upgradesContainer = document.getElementById('upgrades-container');
+
+        // --- ゲームロジック ---
+        function handleChimeClick(event) {
+            points += pointsPerClick;
+            updatePointsDisplay();
+
+            // クリック音
+            if (Tone.context.state !== 'running') Tone.context.resume();
+            const synth = new Tone.Synth().toDestination();
+            synth.triggerAttackRelease("C6", "16n");
+            
+            // アニメーション
+            windChime.classList.remove('swing');
+            void windChime.offsetWidth; // 強制リフロー
+            windChime.classList.add('swing');
+
+            // フローティングナンバー
+            const x = event.clientX;
+            const y = event.clientY;
+            createFloatingNumber(x, y, `+${pointsPerClick}`);
+        }
+        
+        function createFloatingNumber(x, y, text) {
+            const numberEl = document.createElement('div');
+            numberEl.textContent = text;
+            numberEl.className = 'floating-number';
+            numberEl.style.left = `${x}px`;
+            numberEl.style.top = `${y}px`;
+            document.body.appendChild(numberEl);
+            setTimeout(() => {
+                numberEl.remove();
+            }, 1000);
+        }
+
+        function buyUpgrade(id) {
+            const upgrade = upgrades[id];
+            const cost = calculateCost(upgrade);
+
+            if (points >= cost) {
+                points -= cost;
+                upgrade.level++;
+                
+                if (upgrade.type === 'ppc') {
+                    pointsPerClick += upgrade.value;
+                } else if (upgrade.type === 'pps') {
+                    pointsPerSecond += upgrade.value;
+                }
+                
+                updateAllDisplays();
+            }
+        }
+
+        function calculateCost(upgrade) {
+            return Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.level));
+        }
+
+        // --- 表示の更新 ---
+        function updatePointsDisplay() {
+            pointsDisplay.textContent = Math.floor(points).toLocaleString();
+        }
+
+        function updatePPSDisplay() {
+            ppsDisplay.textContent = `自動: ${pointsPerSecond.toLocaleString()} ポイント/秒`;
+        }
+        
+        function renderUpgrades() {
+            upgradesContainer.innerHTML = '';
+            for (const id in upgrades) {
+                const upgrade = upgrades[id];
+                const cost = calculateCost(upgrade);
+
+                const button = document.createElement('button');
+                button.className = 'upgrade-button w-full bg-sky-500 hover:bg-sky-600 text-white p-3 rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50';
+                button.onclick = () => buyUpgrade(id);
+                
+                button.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="text-left">
+                            <p class="font-bold">${upgrade.name} (Lv.${upgrade.level})</p>
+                            <p class="text-sm">${upgrade.description}</p>
+                        </div>
+                        <p class="font-bold text-lg">${cost.toLocaleString()}</p>
+                    </div>
+                `;
+                upgradesContainer.appendChild(button);
+            }
+        }
+
+        function updateUpgradeButtons() {
+            const buttons = upgradesContainer.getElementsByTagName('button');
+            let i = 0;
+            for(const id in upgrades) {
+                const cost = calculateCost(upgrades[id]);
+                buttons[i].disabled = points < cost;
+                i++;
+            }
+        }
+        
+        function updateAllDisplays() {
+            updatePointsDisplay();
+            updatePPSDisplay();
+            renderUpgrades();
+            updateUpgradeButtons();
+        }
+
+        // --- ゲームループ ---
+        function gameLoop() {
+            points += pointsPerSecond / 10; // 1秒間に10回実行
+            updatePointsDisplay();
+            updateUpgradeButtons();
+        }
+
+        // --- 初期化とイベントリスナー ---
+        windChime.addEventListener('click', handleChimeClick);
+        setInterval(gameLoop, 100); // 0.1秒ごとにループ
+        updateAllDisplays();
+    </script>
+</body>
+</html>

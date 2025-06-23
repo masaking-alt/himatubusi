@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>声かけ！スイカ割り名人</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Mochiy Pop One', sans-serif;
+            background: linear-gradient(to bottom, #87ceeb, #f0e68c);
+        }
+        canvas {
+            background-color: transparent;
+        }
+        .dialogue-bubble {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 3px solid #6b7280;
+            position: absolute; 
+            transform: translateX(-50%); 
+            transition: opacity 0.2s;
+        }
+        .dialogue-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 15px 15px 0;
+            border-style: solid;
+            border-color: #6b7280 transparent transparent transparent;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div class="w-full max-w-2xl text-center">
+        <h1 class="text-5xl font-bold text-white mb-4" style="text-shadow: 3px 3px 5px rgba(0,0,0,0.3);">声かけ！スイカ割り名人</h1>
+        
+        <!-- ゲーム画面 -->
+        <div class="relative shadow-2xl rounded-2xl overflow-hidden">
+            <canvas id="gameCanvas" width="600" height="700"></canvas>
+            
+            <!-- UI要素 -->
+            <div id="ui-container" class="absolute inset-0 p-4 flex flex-col justify-between items-center text-gray-800 pointer-events-none">
+                <div id="info-display" class="w-full text-right text-2xl font-bold text-white" style="text-shadow: 2px 2px 3px #000;">
+                    のこり指示回数: <span id="turn-counter">10</span>
+                </div>
+                
+                <div id="input-container" class="w-full max-w-md pointer-events-auto">
+                    <!-- ★★★ 修正点 ★★★ -->
+                    <div class="flex gap-2 items-center">
+                        <input type="text" id="command-input" class="flex-grow px-4 py-2 rounded-lg shadow-inner" placeholder="「右」「前へ」などの指示を入力">
+                        <button id="send-button" class="flex-shrink-0 bg-sky-500 hover:bg-sky-600 text-white font-bold px-4 py-2 rounded-lg shadow-lg">指示</button>
+                        <button id="swing-button" class="flex-shrink-0 bg-rose-500 hover:bg-rose-600 text-white font-bold px-6 py-2 rounded-lg shadow-lg">叩け！</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="dialogue-bubble" class="dialogue-bubble hidden max-w-sm p-3 rounded-lg">
+                <p id="dialogue-text"></p>
+            </div>
+
+            <!-- 結果表示 -->
+            <div id="result-overlay" class="hidden absolute inset-0 bg-black/50 flex flex-col justify-center items-center text-white pointer-events-auto">
+                <h2 id="result-title" class="text-6xl font-bold" style="text-shadow: 3px 3px 5px #000;"></h2>
+                <p id="result-subtitle" class="text-2xl mt-4" style="text-shadow: 2px 2px 4px #000;"></p>
+                <button id="retry-button" class="mt-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-10 rounded-full text-2xl shadow-lg">もう一度挑戦</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 初期設定 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const ui = {
+            turnCounter: document.getElementById('turn-counter'),
+            dialogueBubble: document.getElementById('dialogue-bubble'),
+            dialogueText: document.getElementById('dialogue-text'),
+            commandInput: document.getElementById('command-input'),
+            sendButton: document.getElementById('send-button'),
+            swingButton: document.getElementById('swing-button'),
+            resultOverlay: document.getElementById('result-overlay'),
+            resultTitle: document.getElementById('result-title'),
+            resultSubtitle: document.getElementById('result-subtitle'),
+            retryButton: document.getElementById('retry-button'),
+        };
+
+        // --- ゲームの状態 ---
+        let gameState = 'waiting'; // waiting, playing, ended
+        let player = { x: 300, y: 150, angle: -Math.PI / 2, stickAngle: 0 }; // 初期方向を上にする
+        let watermelon = { x: 300, y: 550, radius: 25, state: 'whole' };
+        let turnsLeft = 10;
+
+        // --- ゲームループ ---
+        function gameLoop() {
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- 描画処理 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawWatermelon();
+            drawPlayer();
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            // プレイヤー本体
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.fill();
+            // 目隠し
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-15, -5, 30, 10);
+
+            // 棒
+            ctx.save();
+            ctx.rotate(player.stickAngle);
+            ctx.fillStyle = '#a16207';
+            ctx.fillRect(15, -5, 80, 10);
+            ctx.restore();
+
+            ctx.restore();
+        }
+        
+        function drawWatermelon() {
+            ctx.save();
+            if (watermelon.state === 'whole') {
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(watermelon.x, watermelon.y, watermelon.radius, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (watermelon.state === 'split') {
+                // 左半分
+                ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(watermelon.x - 10, watermelon.y, watermelon.radius, Math.PI/2, -Math.PI/2); ctx.fill();
+                ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(watermelon.x - 10, watermelon.y, watermelon.radius, -Math.PI/2, Math.PI/2, true); ctx.fill();
+                // 右半分
+                ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(watermelon.x + 10, watermelon.y, watermelon.radius, -Math.PI/2, Math.PI/2); ctx.fill();
+                ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(watermelon.x + 10, watermelon.y, watermelon.radius, Math.PI/2, -Math.PI/2, true); ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // --- ゲーム管理 ---
+        function startGame() {
+            gameState = 'playing';
+            turnsLeft = 10;
+            player = { x: Math.random() * 200 + 200, y: 150, angle: -Math.PI / 2, stickAngle: 0 };
+            watermelon.x = Math.random() * 400 + 100;
+            watermelon.state = 'whole';
+            
+            ui.resultOverlay.classList.add('hidden');
+            ui.turnCounter.textContent = turnsLeft;
+            showDialogue("よーし、やるぞー！どっちだ？", 2000);
+        }
+
+        function handleCommand() {
+            if (gameState !== 'playing' || turnsLeft <= 0) return;
+            
+            const command = ui.commandInput.value;
+            if (!command) return;
+            ui.commandInput.value = '';
+
+            let feedback = "えーっと…";
+            
+            if (command.includes('叩け') || command.includes('スイング')) {
+                swingStick();
+                return;
+            }
+
+            // 移動コマンドの解析
+            if (command.includes('右')) {
+                player.angle += Math.PI / 8 * (getNumberFromCommand(command) || 1);
+                feedback = "右だね！";
+            } else if (command.includes('左')) {
+                player.angle -= Math.PI / 8 * (getNumberFromCommand(command) || 1);
+                feedback = "左だね！";
+            } else if (command.includes('前')) {
+                const distance = 20 * (getNumberFromCommand(command) || 1);
+                player.x += Math.cos(player.angle) * distance;
+                player.y += Math.sin(player.angle) * distance;
+                feedback = "前に進むよ！";
+            } else if (command.includes('後ろ')) {
+                 const distance = 20 * (getNumberFromCommand(command) || 1);
+                player.x -= Math.cos(player.angle) * distance;
+                player.y -= Math.sin(player.angle) * distance;
+                feedback = "後ろだね！";
+            } else {
+                feedback = "え？なんて？";
+            }
+
+            consumeTurn(feedback);
+        }
+        
+        function getNumberFromCommand(command) {
+            const match = command.match(/[0-9０-９]+/);
+            if (!match) return null;
+            return parseInt(match[0].replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)));
+        }
+
+        function swingStick() {
+            if (gameState !== 'playing' || turnsLeft <= 0) return;
+
+            // アニメーション
+            player.stickAngle = Math.PI / 4; 
+            setTimeout(() => { 
+                player.stickAngle = -Math.PI / 4;
+                const stickTipX = player.x + Math.cos(player.angle) * 100;
+                const stickTipY = player.y + Math.sin(player.angle) * 100;
+                const distance = Math.hypot(stickTipX - watermelon.x, stickTipY - watermelon.y);
+
+                if (distance < watermelon.radius + 10) {
+                    consumeTurn("やったー！");
+                    watermelon.state = 'split';
+                    endGame(true);
+                } else {
+                    consumeTurn("あれ？空振り？");
+                    if (turnsLeft <= 0) endGame(false);
+                }
+                setTimeout(() => { player.stickAngle = 0; }, 250);
+            }, 250);
+        }
+        
+        function consumeTurn(feedbackText) {
+            if (turnsLeft <= 0) return;
+            turnsLeft--;
+            ui.turnCounter.textContent = turnsLeft;
+            showDialogue(feedbackText, 1500);
+        }
+
+        function endGame(isClear) {
+            gameState = 'ended';
+            setTimeout(() => {
+                if (isClear) {
+                    ui.resultTitle.textContent = "🎉お見事！🎉";
+                    ui.resultSubtitle.textContent = "完璧なスイカ割りでした！";
+                } else {
+                    ui.resultTitle.textContent = "ざんねん…";
+                    ui.resultSubtitle.textContent = "スイカに届かなかった…";
+                }
+                ui.resultOverlay.classList.remove('hidden');
+            }, 1500);
+        }
+
+        function showDialogue(text, duration) {
+            const bubble = ui.dialogueBubble;
+            ui.dialogueText.textContent = text;
+            
+            // プレイヤーの頭上に表示
+            bubble.style.left = `${player.x}px`;
+            bubble.style.top = `${player.y - 80}px`; // オフセット調整
+
+            bubble.classList.remove('hidden');
+            setTimeout(() => {
+                bubble.classList.add('hidden');
+            }, duration);
+        }
+
+        function resetGame() {
+            ui.resultOverlay.classList.add('hidden');
+            ui.dialogueBubble.classList.add('hidden');
+            startGame();
+        }
+
+        // --- イベントリスナー ---
+        ui.sendButton.addEventListener('click', handleCommand);
+        ui.swingButton.addEventListener('click', swingStick);
+        ui.commandInput.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter') handleCommand();
+        });
+        ui.retryButton.addEventListener('click', resetGame);
+
+        // --- 初期化 ---
+        startGame();
+        gameLoop();
+
+    </script>
+</body>
+</html>

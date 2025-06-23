@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>肝試しルートファインダー</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'DotGothic16', sans-serif;
+            background-color: #000;
+        }
+        canvas {
+            background-color: #1a202c;
+            cursor: none;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div class="w-full max-w-lg text-center">
+        <h1 class="text-3xl font-bold text-white mb-4">肝試しルートファインダー</h1>
+
+        <div class="relative shadow-2xl rounded-lg overflow-hidden">
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- メッセージ表示 -->
+            <div id="message-overlay" class="absolute inset-0 bg-black/60 flex flex-col justify-center items-center text-white pointer-events-auto">
+                <h2 id="message-title" class="text-5xl font-bold"></h2>
+                <p id="message-subtitle" class="text-xl mt-4"></p>
+                <button id="start-button" class="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-lg text-2xl shadow-lg">始める</button>
+            </div>
+        </div>
+        <p class="text-white mt-4">矢印キーで移動</p>
+    </div>
+
+    <script>
+        // --- 初期設定 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const ui = {
+            messageOverlay: document.getElementById('message-overlay'),
+            messageTitle: document.getElementById('message-title'),
+            messageSubtitle: document.getElementById('message-subtitle'),
+            startButton: document.getElementById('start-button'),
+        };
+
+        const TILE_SIZE = 32;
+        const MAP_COLS = 15;
+        const MAP_ROWS = 15;
+        canvas.width = TILE_SIZE * MAP_COLS;
+        canvas.height = TILE_SIZE * MAP_ROWS;
+
+        // --- ゲームの状態 ---
+        let gameState = 'waiting';
+        let player, ghosts, goal;
+        let animationFrameId;
+        let currentMapLayout; 
+
+        // ★★★ 変更点：クリア可能なマップに修正 ★★★
+        const ALL_MAP_LAYOUTS = [
+            // Map 1 
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,1,0,0,0,0,0,0,0,0,0,1],
+                [1,0,1,0,1,0,1,1,1,0,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+                [1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,1,0,0,0,1,0,1,0,1],
+                [1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],
+                [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+                [1,0,1,0,1,1,1,1,1,1,1,0,1,1,1],
+                [1,0,1,0,0,0,0,0,1,0,0,0,0,0,1],
+                [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1],
+                [1,0,0,0,1,0,1,0,1,0,1,0,0,0,1],
+                [1,1,1,0,1,0,1,0,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,1,0,0,0,0,0,1,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            ],
+            // Map 2
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                [1,1,1,1,1,1,0,1,1,1,1,1,1,0,1],
+                [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,1,1,0,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,0,0,1,0,0,0,0,1],
+                [1,0,1,0,1,1,1,1,1,1,0,1,1,1,1],
+                [1,0,1,0,1,0,0,0,0,0,0,1,0,0,1],
+                [1,0,1,0,1,0,1,1,1,1,1,1,0,1,1],
+                [1,0,0,0,1,0,1,0,0,0,0,0,0,1,1],
+                [1,1,1,1,1,0,1,0,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+                [1,0,1,1,1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,1,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            ],
+            // Map 3 (Fixed)
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,0,0,1,0,0,0,0,0,0,0,1],
+                [1,0,1,1,1,0,1,1,1,1,1,1,1,0,1],
+                [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+                [1,1,1,0,1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,1,0,1,0,1,0,1],
+                [1,0,1,1,1,1,1,0,1,0,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,1,0,0,0,1,0,1],
+                [1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+                [1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,1,1,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,0,0,0,1,0,1,0,1],
+                [1,0,1,0,1,0,1,0,1,1,1,0,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            ],
+            // Map 4 (New)
+            [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,0,0,0,0,0,1,0,0,0,0,0,0,1],
+                [1,0,1,1,1,1,0,1,0,1,1,1,1,0,1],
+                [1,0,1,0,0,0,0,1,0,1,0,0,0,0,1],
+                [1,0,1,0,1,1,1,1,0,1,0,1,1,1,1],
+                [1,0,1,0,1,0,0,0,0,1,0,1,0,0,1],
+                [1,0,1,1,1,0,1,1,1,1,0,1,0,1,1],
+                [1,0,0,0,1,0,1,0,0,0,0,1,0,1,1],
+                [1,1,1,0,1,1,1,0,1,1,1,1,0,1,1],
+                [1,0,0,0,0,0,1,0,1,0,0,0,0,1,1],
+                [1,0,1,1,1,0,1,0,1,0,1,1,1,1,1],
+                [1,0,1,0,0,0,0,0,1,0,1,0,0,0,1],
+                [1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
+                [1,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            ]
+        ];
+
+        // --- エンティティのクラス定義 ---
+        class Player {
+            constructor(x, y) { this.x = x; this.y = y; this.radius = TILE_SIZE / 3; this.direction = { x: 0, y: 1 }; }
+            move(dx, dy) {
+                const newX = this.x + dx; const newY = this.y + dy;
+                const mapX = Math.floor(newX / TILE_SIZE); const mapY = Math.floor(newY / TILE_SIZE);
+                if (currentMapLayout[mapY] && currentMapLayout[mapY][mapX] !== 1) { this.x = newX; this.y = newY; this.direction = {x: dx / TILE_SIZE, y: dy / TILE_SIZE }; }
+            }
+            draw() { ctx.fillStyle = '#fef08a'; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill(); }
+        }
+        class Ghost {
+            constructor(x, y, path) { this.x = x; this.y = y; this.radius = TILE_SIZE / 2.5; this.path = path; this.pathIndex = 0; this.speed = 0.5; this.fov = Math.PI / 4; this.viewDistance = TILE_SIZE * 4; this.direction = { x: 0, y: 1 }; }
+            update() { const target = this.path[this.pathIndex]; const targetX = target.x * TILE_SIZE + TILE_SIZE / 2; const targetY = target.y * TILE_SIZE + TILE_SIZE / 2; const dx = targetX - this.x; const dy = targetY - this.y; const dist = Math.hypot(dx, dy); if (dist < this.speed) { this.pathIndex = (this.pathIndex + 1) % this.path.length; } else { const angle = Math.atan2(dy, dx); this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed; this.direction = { x: Math.cos(angle), y: Math.sin(angle) }; } }
+            draw() { ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(this.x-5, this.y-2, 2, 0, Math.PI * 2); ctx.arc(this.x+5, this.y-2, 2, 0, Math.PI * 2); ctx.fill(); }
+            canSeePlayer(player) { if (!player) return false; const dx = player.x - this.x; const dy = player.y - this.y; const dist = Math.hypot(dx, dy); if (dist > this.viewDistance) return false; const angleToPlayer = Math.atan2(dy, dx); const ghostAngle = Math.atan2(this.direction.y, this.direction.x); let angleDiff = Math.abs(angleToPlayer - ghostAngle); if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff; if (angleDiff > this.fov / 2) return false; for (let i = 0; i < dist; i += TILE_SIZE / 4) { const checkX = this.x + Math.cos(angleToPlayer) * i; const checkY = this.y + Math.sin(angleToPlayer) * i; const mapTile = currentMapLayout[Math.floor(checkY/TILE_SIZE)] && currentMapLayout[Math.floor(checkY/TILE_SIZE)][Math.floor(checkX/TILE_SIZE)]; if (mapTile === 1) { return false; } } return true; }
+        }
+
+        // --- ゲームループ ---
+        function gameLoop() {
+            if (gameState !== 'playing') { cancelAnimationFrame(animationFrameId); return; }
+            ghosts.forEach(g => g.update());
+            draw();
+            ghosts.forEach(g => { if(g.canSeePlayer(player)) gameOver(); });
+            const distToGoal = Math.hypot(player.x - goal.x, player.y - goal.y);
+            if (distToGoal < player.radius + TILE_SIZE / 2) gameClear();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawMapBase();
+
+            if (gameState === 'playing' && player) {
+                ghosts.forEach(g => g.draw());
+                player.draw();
+                
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.97)';
+                ctx.beginPath();
+                ctx.rect(0, 0, canvas.width, canvas.height);
+                const flashlightAngle = Math.atan2(player.direction.y, player.direction.x);
+                ctx.moveTo(player.x, player.y);
+                ctx.arc(player.x, player.y, TILE_SIZE * 3.5, flashlightAngle - Math.PI / 6, flashlightAngle + Math.PI / 6);
+                ctx.closePath();
+                ctx.fill('evenodd');
+                ctx.restore();
+            }
+        }
+
+        function drawMapBase() {
+             for(let y = 0; y < MAP_ROWS; y++) {
+                for(let x = 0; x < MAP_COLS; x++) {
+                    if (currentMapLayout[y][x] === 1) {
+                        ctx.fillStyle = '#475569';
+                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    } else if (currentMapLayout[y][x] === 2) {
+                        ctx.fillStyle = '#313b4e';
+                        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        ctx.fillStyle = 'white';
+                        ctx.font = `${TILE_SIZE * 0.4}px 'DotGothic16'`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('入口', x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
+                    } else if (currentMapLayout[y][x] === 3) {
+                         ctx.fillStyle = '#facc15';
+                         ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                         ctx.fillStyle = 'black';
+                         ctx.font = `bold ${TILE_SIZE * 0.4}px 'DotGothic16'`;
+                         ctx.textAlign = 'center';
+                         ctx.textBaseline = 'middle';
+                         ctx.fillText('出口', x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
+                    }
+                }
+            }
+        }
+
+        function handleKeyDown(e) {
+            if (gameState !== 'playing') return;
+            const moveStep = TILE_SIZE;
+            switch(e.key) {
+                case 'ArrowUp': player.move(0, -moveStep); break;
+                case 'ArrowDown': player.move(0, moveStep); break;
+                case 'ArrowLeft': player.move(-moveStep, 0); break;
+                case 'ArrowRight': player.move(moveStep, 0); break;
+            }
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            currentMapLayout = ALL_MAP_LAYOUTS[Math.floor(Math.random() * ALL_MAP_LAYOUTS.length)];
+            let startPos = { x: 1, y: 1 };
+             for (let y = 0; y < MAP_ROWS; y++) {
+                for (let x = 0; x < MAP_COLS; x++) {
+                    if (currentMapLayout[y][x] === 2) startPos = { x, y };
+                    if (currentMapLayout[y][x] === 3) goal = { x: x * TILE_SIZE + TILE_SIZE / 2, y: y * TILE_SIZE + TILE_SIZE / 2 };
+                }
+            }
+            player = new Player(startPos.x * TILE_SIZE + TILE_SIZE / 2, startPos.y * TILE_SIZE + TILE_SIZE / 2);
+            ghosts = [
+                new Ghost(7.5 * TILE_SIZE, 3.5 * TILE_SIZE, [{x:7, y:3}, {x:7, y:7}]),
+                new Ghost(1.5 * TILE_SIZE, 10.5 * TILE_SIZE, [{x:1, y:10}, {x:5, y:10}, {x:5, y:12}, {x:1, y:12}]),
+                new Ghost(10.5 * TILE_SIZE, 8.5 * TILE_SIZE, [{x:10, y:8}, {x:13, y:8}, {x:13, y:10}, {x:10, y:10}])
+            ];
+            ui.messageOverlay.classList.add('hidden');
+            if (Tone.context.state !== 'running') Tone.context.resume();
+            document.addEventListener('keydown', handleKeyDown);
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            if(gameState !== 'playing') return;
+            gameState = 'gameover';
+            document.removeEventListener('keydown', handleKeyDown);
+            ui.messageTitle.textContent = '見つかった…';
+            ui.messageSubtitle.textContent = 'お化けは、見ていた。';
+            ui.startButton.textContent = 'もう一度挑戦する';
+            ui.messageOverlay.classList.remove('hidden');
+            new Tone.Synth().toDestination().triggerAttackRelease("A2", "2n");
+        }
+
+        function gameClear() {
+            if(gameState !== 'playing') return;
+            gameState = 'cleared';
+            document.removeEventListener('keydown', handleKeyDown);
+            ui.messageTitle.textContent = 'クリア！';
+            ui.messageSubtitle.textContent = '無事に脱出できた！';
+            ui.startButton.textContent = 'もう一度挑戦する';
+            ui.messageOverlay.classList.remove('hidden');
+            new Tone.Synth().toDestination().triggerAttackRelease("C5", "2n");
+        }
+
+        function resetGame() {
+            gameState = 'waiting';
+            player = null; 
+            cancelAnimationFrame(animationFrameId);
+            ui.messageTitle.textContent = '肝試し';
+            ui.messageSubtitle.textContent = 'お化けに見つからずに出口を目指せ';
+            ui.startButton.textContent = '始める';
+            ui.messageOverlay.classList.remove('hidden');
+            currentMapLayout = ALL_MAP_LAYOUTS[0];
+            draw();
+        }
+
+        ui.startButton.addEventListener('click', () => {
+             if (gameState === 'waiting' || gameState === 'gameover' || gameState === 'cleared') {
+                 startGame();
+             }
+        });
+
+        resetGame();
+
+    </script>
+</body>
+</html>

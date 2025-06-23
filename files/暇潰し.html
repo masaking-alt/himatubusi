@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>暇つぶしゲーム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Mochiy+Pop+One', sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            cursor: crosshair;
+        }
+        .hima-char {
+            position: absolute;
+            font-size: 5rem;
+            font-weight: bold;
+            color: #334155;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s ease-out;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .hima-char:hover {
+            transform: scale(1.1);
+            color: #ef4444;
+        }
+        .crushed {
+            animation: crush 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes crush {
+            0% {
+                transform: scale(1.2) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.1) rotate(360deg) translateY(100px);
+                opacity: 0;
+            }
+        }
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 10;
+        }
+        .screen h1 {
+            font-size: 5rem;
+            text-shadow: 3px 3px 0 #4f46e5;
+        }
+        .screen button {
+            transition: all 0.2s ease;
+        }
+        .screen button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-container" class="absolute top-0 left-0 right-0 p-4 text-slate-700 flex justify-between items-center text-3xl" style="visibility: hidden;">
+            <div><button id="back-button" class="text-xl bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg">← 戻る</button></div>
+            <div>スコア: <span id="score">0</span></div>
+            <div id="timer-container">時間: <span id="timer">30</span></div>
+        </div>
+
+        <div id="start-screen" class="screen">
+            <h1 class="mb-8">暇つぶし</h1>
+            <div class="flex flex-col gap-6">
+                <button id="highscore-mode-button" class="text-3xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg">
+                    暇潰しモード (ハイスコア)
+                </button>
+                <button id="endless-mode-button" class="text-3xl bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg">
+                    ひまつぶしモード (エンドレス)
+                </button>
+            </div>
+        </div>
+
+        <div id="end-screen" class="screen" style="display: none;">
+            <h1 id="end-title" class="mb-4">タイムアップ！</h1>
+            <div id="final-score" class="text-4xl mb-2"></div>
+            <div id="high-score-display" class="text-2xl mb-8 text-yellow-400"></div>
+            <button id="restart-button" class="text-3xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg">
+                もう一度
+            </button>
+             <button id="menu-button" class="text-xl mt-4 bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg">
+                モード選択に戻る
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const uiContainer = document.getElementById('ui-container');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const timerContainer = document.getElementById('timer-container');
+        const startScreen = document.getElementById('start-screen');
+        const endScreen = document.getElementById('end-screen');
+        const highscoreModeButton = document.getElementById('highscore-mode-button');
+        const endlessModeButton = document.getElementById('endless-mode-button');
+        const restartButton = document.getElementById('restart-button');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const backButton = document.getElementById('back-button');
+        const menuButton = document.getElementById('menu-button');
+        const endTitle = document.getElementById('end-title');
+
+        const HIGH_SCORE_KEY = 'himaCrusherHighScore';
+        let score = 0;
+        let timeLeft = 30;
+        let gameMode = '';
+        let gameInterval;
+        let timerInterval;
+        let highScore = localStorage.getItem(HIGH_SCORE_KEY) || 0;
+
+        function createHima() {
+            const hima = document.createElement('div');
+            hima.textContent = '暇';
+            hima.classList.add('hima-char');
+
+            const maxWidth = gameContainer.clientWidth - 100;
+            const maxHeight = gameContainer.clientHeight - 100;
+
+            hima.style.left = `${Math.random() * maxWidth}px`;
+            hima.style.top = `${Math.random() * maxHeight}px`;
+
+            hima.addEventListener('click', () => {
+                if (!hima.classList.contains('crushed')) {
+                    score++;
+                    scoreDisplay.textContent = score;
+                    hima.classList.add('crushed');
+                    hima.addEventListener('animationend', () => {
+                        hima.remove();
+                    });
+                }
+            });
+
+            gameContainer.appendChild(hima);
+        }
+
+        function startGame(mode) {
+            gameMode = mode;
+            startScreen.style.display = 'none';
+            endScreen.style.display = 'none';
+            uiContainer.style.visibility = 'visible';
+            
+            score = 0;
+            scoreDisplay.textContent = score;
+
+            const spawnInterval = (gameMode === 'highscore') ? 300 : 800;
+            gameInterval = setInterval(createHima, spawnInterval);
+
+            if (gameMode === 'highscore') {
+                timeLeft = 30;
+                timerDisplay.textContent = timeLeft;
+                timerContainer.style.visibility = 'visible';
+                restartButton.style.display = 'block';
+                timerInterval = setInterval(updateTimer, 1000);
+            } else { // endless mode
+                timerContainer.style.visibility = 'hidden';
+                restartButton.style.display = 'none';
+            }
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            timerDisplay.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+        
+        function stopGame() {
+            clearInterval(gameInterval);
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            document.querySelectorAll('.hima-char').forEach(el => el.remove());
+        }
+
+        function endGame() {
+            stopGame();
+            uiContainer.style.visibility = 'hidden';
+            endTitle.textContent = "タイムアップ！";
+            finalScoreDisplay.textContent = `スコア: ${score}`;
+
+            // ハイスコアのチェックと表示
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem(HIGH_SCORE_KEY, highScore);
+                highScoreDisplay.textContent = `ハイスコア更新！: ${highScore}`;
+            } else {
+                highScoreDisplay.textContent = `ハイスコア: ${highScore}`;
+            }
+
+            endScreen.style.display = 'flex';
+        }
+        
+        function returnToMenu() {
+            stopGame();
+            uiContainer.style.visibility = 'hidden';
+            endScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+        }
+
+        highscoreModeButton.addEventListener('click', () => startGame('highscore'));
+        endlessModeButton.addEventListener('click', () => startGame('endless'));
+        restartButton.addEventListener('click', () => startGame(gameMode));
+        backButton.addEventListener('click', returnToMenu);
+        menuButton.addEventListener('click', returnToMenu);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>絶対に押してはいけない（夏）ボタン</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Mochiy Pop One', sans-serif;
+            overflow: hidden; /* ボタンが画面外にはみ出ないように */
+            transition: background 0.5s ease;
+        }
+        #escape-button {
+            transition: all 0.1s ease-out; 
+        }
+        /* 勝利画面のスタイル */
+        #victory-screen {
+            background: rgba(0,0,0,0.5);
+        }
+        /* ★★★ 追加点：ダメージエフェクト ★★★ */
+        .damaged {
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) scale(var(--scale, 1)); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px) scale(var(--scale, 1)); }
+            20%, 40%, 60%, 80% { transform: translateX(5px) scale(var(--scale, 1)); }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex items-center justify-center p-4">
+
+    <div id="game-container" class="text-center w-full max-w-2xl">
+        <h1 id="title" class="text-3xl lg:text-5xl text-white mb-4" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+            絶対に押してはいけない（夏）
+        </h1>
+        
+        <!-- ★★★ 追加点：HPバー ★★★ -->
+        <div id="hp-container" class="w-full max-w-md mx-auto mb-4">
+            <p class="text-white text-lg">ボタンのHP</p>
+            <div class="w-full bg-gray-700 rounded-full h-6 border-2 border-gray-900">
+                <div id="hp-bar" class="bg-gradient-to-r from-green-400 to-green-600 h-full rounded-full transition-all duration-300 ease-out" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <p id="counter" class="text-white text-2xl h-10"></p>
+
+        <!-- 逃げるボタン -->
+        <button id="escape-button" class="absolute bg-white text-cyan-600 font-bold py-4 px-8 rounded-full text-xl shadow-2xl">
+            🧊 涼しくなる 🧊
+        </button>
+    </div>
+
+    <!-- 勝利画面 -->
+    <div id="victory-screen" class="hidden absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center text-white">
+        <h2 class="text-6xl font-bold mb-4" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.4);">🎉 勝利！ 🎉</h2>
+        <p class="text-2xl mb-8">灼熱のボタンを打ち破り、涼しい夏が訪れた！</p>
+        <button id="retry-button" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-8 rounded-full text-xl shadow-lg">
+            もう一度挑戦する
+        </button>
+    </div>
+
+    <script>
+        const button = document.getElementById('escape-button');
+        const title = document.getElementById('title');
+        const counter = document.getElementById('counter');
+        const gameContainer = document.getElementById('game-container');
+        const victoryScreen = document.getElementById('victory-screen');
+        const retryButton = document.getElementById('retry-button');
+        const hpBar = document.getElementById('hp-bar');
+
+        const MAX_ESCAPES_BEFORE_PAUSE = 5; // ボタンが疲れるまでの回数
+        let escapeCount = 0;
+        
+        // ★★★ 追加点：HP関連の変数 ★★★
+        const MAX_HP = 10;
+        let currentHP = MAX_HP;
+        let buttonState = 'running'; // 'running', 'vulnerable'
+        let vulnerableTimeout;
+
+        // ボタンにマウスが乗ったときの処理
+        button.addEventListener('mouseover', () => {
+            if (buttonState === 'running') {
+                escapeCount++;
+                if (escapeCount >= MAX_ESCAPES_BEFORE_PAUSE) {
+                    // 疲れて隙が生まれる
+                    buttonState = 'vulnerable';
+                    counter.textContent = '疲れた...今だ！';
+                    // 1.5秒後にまた逃げ始めるタイマー
+                    vulnerableTimeout = setTimeout(() => {
+                        if (buttonState === 'vulnerable') {
+                           startRunningAgain();
+                        }
+                    }, 1500);
+                } else {
+                    moveButton();
+                    counter.textContent = `あと ${MAX_ESCAPES_BEFORE_PAUSE - escapeCount} 回！`;
+                }
+            }
+        });
+        
+        // ボタンがクリックされたときの処理
+        button.addEventListener('click', () => {
+            // 隙がある状態でのみダメージを与えられる
+            if (buttonState === 'vulnerable') {
+                clearTimeout(vulnerableTimeout); // タイマーをキャンセル
+                currentHP--;
+                updateHPBar();
+                showDamageEffect();
+
+                if (currentHP <= 0) {
+                    showVictory();
+                } else {
+                    // 攻撃されたら回復してまた逃げ始める
+                    startRunningAgain();
+                }
+            }
+        });
+
+        // リトライボタンの処理
+        retryButton.addEventListener('click', resetGame);
+
+        function moveButton() {
+            // ボタンの移動ロジック（変更なし）
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const buttonWidth = button.offsetWidth;
+            const buttonHeight = button.offsetHeight;
+            const centerX = viewportWidth / 2;
+            const centerY = viewportHeight / 2;
+            let newX, newY;
+            if (button.offsetLeft + buttonWidth / 2 < centerX) {
+                newX = centerX + Math.random() * (centerX - buttonWidth);
+            } else {
+                newX = Math.random() * (centerX - buttonWidth);
+            }
+            if (button.offsetTop + buttonHeight / 2 < centerY) {
+                newY = centerY + Math.random() * (centerY - buttonHeight);
+            } else {
+                newY = Math.random() * (centerY - buttonHeight);
+            }
+            button.style.left = Math.floor(newX) + 'px';
+            button.style.top = Math.floor(newY) + 'px';
+        }
+        
+        // ★★★ 追加・変更された関数 ★★★
+        function updateHPBar() {
+            const hpPercentage = (currentHP / MAX_HP) * 100;
+            hpBar.style.width = `${hpPercentage}%`;
+            // HPに応じて色を変更
+            if (hpPercentage < 30) {
+                hpBar.style.backgroundColor = '#f44336'; // 赤色
+            } else if (hpPercentage < 60) {
+                hpBar.style.backgroundColor = '#ffc107'; // 黄色
+            } else {
+                 hpBar.style.background = 'linear-gradient(to right, #66bb6a, #43a047)'; // 緑色
+            }
+        }
+
+        function showDamageEffect() {
+            button.classList.add('damaged');
+            setTimeout(() => {
+                button.classList.remove('damaged');
+            }, 500); // 0.5秒後にアニメーションクラスを削除
+        }
+
+        function startRunningAgain() {
+            buttonState = 'running';
+            escapeCount = 0;
+            counter.textContent = '逃げられた！';
+            setTimeout(() => {
+                 if(buttonState === 'running') counter.textContent = '';
+            }, 1000);
+            moveButton();
+        }
+        
+        function showVictory() {
+            gameContainer.classList.add('hidden');
+            victoryScreen.classList.remove('hidden');
+            document.body.style.background = '#add8e6';
+        }
+
+        function resetGame() {
+            escapeCount = 0;
+            currentHP = MAX_HP;
+            buttonState = 'running';
+            updateHPBar();
+            counter.textContent = '';
+            victoryScreen.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            document.body.style.background = 'radial-gradient(ellipse at bottom, #ffc107, #ff9800, #f44336, #420404)';
+            moveButton();
+        }
+
+        // ゲーム開始時にボタンを配置
+        resetGame();
+
+    </script>
+</body>
+</html>

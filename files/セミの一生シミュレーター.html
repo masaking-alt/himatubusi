@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>セミの一生シミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Yusei+Magic', sans-serif;
+            background-color: #fef3c7; /* bg-amber-100 */
+        }
+        .cicada {
+            transition: transform 0.5s ease-in-out;
+        }
+        .dead {
+            transform: rotate(180deg);
+        }
+        .button-shadow {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .button-shadow:hover {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        /* カスタムラジオボタンのためのスタイル */
+        input[type="radio"] {
+            display: none;
+        }
+        input[type="radio"]:checked + label {
+            background-color: #10b981; /* bg-emerald-500 */
+            color: white;
+            border-color: #059669; /* bg-emerald-600 */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+    <div id="container" class="text-center p-6 md:p-8 bg-white/80 rounded-2xl shadow-xl max-w-lg w-full transition-colors duration-500">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">セミの一生シミュレーター</h1>
+        
+        <div id="cicada-area" class="my-6 hidden">
+            <!-- セミのSVG画像 -->
+            <svg class="cicada w-32 h-32 mx-auto" viewBox="0 0 100 100" fill="#6B4F2E">
+                <g>
+                    <ellipse cx="50" cy="60" rx="15" ry="30"/><circle cx="50" cy="35" r="12"/><circle cx="43" cy="32" r="3" fill="red"/><circle cx="57" cy="32" r="3" fill="red"/>
+                    <path d="M 35 50 C -10 20, 20 90, 35 70 Z" fill="#F5E8C7" stroke="#6B4F2E" stroke-width="2"/>
+                    <path d="M 65 50 C 110 20, 80 90, 65 70 Z" fill="#F5E8C7" stroke="#6B4F2E" stroke-width="2"/>
+                </g>
+            </svg>
+        </div>
+
+        <div id="status-area" class="h-32">
+            <p id="message" class="text-lg text-gray-700 h-10 flex items-center justify-center">地上での命は、わずか7日間...。</p>
+            <div id="timer" class="text-2xl md:text-3xl font-bold text-red-600 my-2"></div>
+        </div>
+
+        <div id="speed-controls" class="mb-6">
+            <p class="text-gray-600 mb-2">速度</p>
+            <div class="flex flex-wrap justify-center gap-2 text-sm">
+                <input type="radio" id="speed1" name="speed" value="1"><label for="speed1" class="cursor-pointer border-2 border-gray-300 rounded-full px-3 py-1 transition-colors duration-200">通常 (7日)</label>
+                <input type="radio" id="speed7" name="speed" value="7"><label for="speed7" class="cursor-pointer border-2 border-gray-300 rounded-full px-3 py-1 transition-colors duration-200">x7 (1日)</label>
+                <input type="radio" id="speed168" name="speed" value="168"><label for="speed168" class="cursor-pointer border-2 border-gray-300 rounded-full px-3 py-1 transition-colors duration-200">x168 (1時間)</label>
+                <input type="radio" id="speed10080" name="speed" value="10080"><label for="speed10080" class="cursor-pointer border-2 border-gray-300 rounded-full px-3 py-1 transition-colors duration-200">x10080 (1分)</label>
+                <input type="radio" id="speed20160" name="speed" value="20160" checked><label for="speed20160" class="cursor-pointer border-2 border-gray-300 rounded-full px-3 py-1 transition-colors duration-200">x20160 (30秒)</label>
+            </div>
+        </div>
+
+        <div id="button-area">
+            <button id="start-button" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-8 rounded-full text-xl transition-all duration-300 button-shadow">
+                羽化させる
+            </button>
+            <button id="reset-button" class="hidden bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-8 rounded-full text-xl transition-all duration-300 button-shadow">
+                次の夏へ
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const cicadaArea = document.getElementById('cicada-area');
+        const cicadaSvg = cicadaArea.querySelector('.cicada');
+        const message = document.getElementById('message');
+        const timerDisplay = document.getElementById('timer');
+        const startButton = document.getElementById('start-button');
+        const resetButton = document.getElementById('reset-button');
+        const speedControls = document.getElementById('speed-controls');
+        
+        const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000;
+        let timerInterval;
+
+        function startSimulation() {
+            const now = Date.now();
+            const speedMultiplier = parseFloat(document.querySelector('input[name="speed"]:checked').value);
+            
+            // 状態をlocalStorageに保存
+            localStorage.setItem('cicadaStartTime', now);
+            localStorage.setItem('cicadaEndTime', now + (SEVEN_DAYS_IN_MS / speedMultiplier));
+            localStorage.setItem('cicadaSpeed', speedMultiplier);
+            
+            updateUI();
+        }
+
+        function updateUI() {
+            const startTime = localStorage.getItem('cicadaStartTime');
+            if (!startTime) {
+                showInitialState();
+                return;
+            }
+
+            // タイマーをクリアしてから再設定
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const endTime = parseFloat(localStorage.getItem('cicadaEndTime'));
+
+                if (now < endTime) {
+                    showPlayingState(endTime - now);
+                } else {
+                    showEndState();
+                    clearInterval(timerInterval);
+                }
+            }, 100);
+        }
+        
+        function showInitialState() {
+            startButton.classList.remove('hidden');
+            speedControls.classList.remove('hidden');
+            resetButton.classList.add('hidden');
+            cicadaArea.classList.add('hidden');
+            message.textContent = '地上での命は、わずか7日間...。';
+            timerDisplay.innerHTML = '';
+        }
+
+        function showPlayingState(remainingRealMs) {
+            const speed = parseFloat(localStorage.getItem('cicadaSpeed'));
+            // UIを更新
+            startButton.classList.add('hidden');
+            speedControls.classList.remove('hidden'); // 常に表示
+            resetButton.classList.remove('hidden');
+            cicadaArea.classList.remove('hidden');
+            cicadaSvg.classList.remove('dead');
+            message.textContent = '「ミーン、ミーン...」';
+
+            // 現在選択されている速度をUIに反映
+            const currentSpeedRadio = document.querySelector(`input[name="speed"][value="${speed}"]`);
+            if (currentSpeedRadio && !currentSpeedRadio.checked) {
+                currentSpeedRadio.checked = true;
+            }
+            
+            // 表示上の残り時間を計算
+            const virtualRemainingMs = remainingRealMs * speed;
+            const days = Math.floor(virtualRemainingMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((virtualRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((virtualRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((virtualRemainingMs % (1000 * 60)) / 1000);
+
+            timerDisplay.innerHTML = `
+                <div class="leading-tight">いのちの輝き：<br>
+                    あと <span class="w-8 inline-block text-right">${days}</span><span class="text-lg">日</span>
+                    <span class="w-8 inline-block text-right">${hours}</span><span class="text-lg"> 時間</span>
+                    <span class="w-8 inline-block text-right">${minutes}</span><span class="text-lg"> 分</span>
+                    <span class="w-8 inline-block text-right">${seconds}</span><span class="text-lg"> 秒</span>
+                </div>`;
+        }
+
+        function showEndState() {
+            speedControls.classList.add('hidden');
+            startButton.classList.add('hidden');
+            resetButton.classList.remove('hidden');
+            cicadaArea.classList.remove('hidden');
+            cicadaSvg.classList.add('dead');
+            message.textContent = '...ああ、夏が終わる...';
+            timerDisplay.innerHTML = `
+                <div class="leading-tight">いのちの輝き：<br>
+                    あと <span class="w-8 inline-block text-right">0</span><span class="text-lg">日</span>
+                    <span class="w-8 inline-block text-right">0</span><span class="text-lg">時間</span>
+                    <span class="w-8 inline-block text-right">0</span><span class="text-lg">分</span>
+                    <span class="w-8 inline-block text-right">0</span><span class="text-lg">秒</span>
+                </div>`;
+        }
+        
+        function changeSpeed(newSpeed) {
+            const now = Date.now();
+            const oldEndTime = parseFloat(localStorage.getItem('cicadaEndTime'));
+            const oldSpeed = parseFloat(localStorage.getItem('cicadaSpeed'));
+            
+            // 現時点での実際の残り時間
+            const remainingRealMs = oldEndTime - now;
+            // 仮想的な残り時間（速度1倍換算）
+            const remainingVirtualMs = remainingRealMs * oldSpeed;
+            // 新しい速度での実際の残り時間
+            const newRemainingRealMs = remainingVirtualMs / newSpeed;
+            // 新しい終了時刻
+            const newEndTime = now + newRemainingRealMs;
+
+            localStorage.setItem('cicadaSpeed', newSpeed);
+            localStorage.setItem('cicadaEndTime', newEndTime);
+
+            // すぐにUIを更新して変更を反映
+            updateUI();
+        }
+
+        function resetSimulation() {
+            localStorage.removeItem('cicadaStartTime');
+            localStorage.removeItem('cicadaEndTime');
+            localStorage.removeItem('cicadaSpeed');
+            clearInterval(timerInterval); 
+            updateUI(); 
+        }
+        
+        // --- イベントリスナー ---
+        startButton.addEventListener('click', startSimulation);
+        resetButton.addEventListener('click', resetSimulation);
+        document.querySelectorAll('input[name="speed"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (localStorage.getItem('cicadaStartTime')) { // シミュレーションが始まっている場合のみ
+                    changeSpeed(parseFloat(e.target.value));
+                }
+            });
+        });
+        
+        // --- ページ読み込み時の処理 ---
+        updateUI();
+
+    </script>
+</body>
+</html>

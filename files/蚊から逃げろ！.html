@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蚊から逃げろ！</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'DotGothic16', sans-serif;
+            background-color: #1e293b; /* bg-slate-800 */
+            overflow: hidden;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
+            cursor: none;
+            display: block;
+        }
+        /* パワーアップテキスト */
+        .powerup-text {
+            position: absolute;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #fde047;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+            pointer-events: none;
+            animation: float-up-fade 1.5s ease-out forwards;
+        }
+        @keyframes float-up-fade {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-60px) scale(1.5);
+            }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen">
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI要素 -->
+    <div id="ui-container" class="absolute inset-0 p-6 flex flex-col justify-between items-center text-center pointer-events-none">
+        
+        <!-- ★★★ 修正点：TIMEとKILLSの表示順を入れ替え ★★★ -->
+        <div id="score-display" class="w-full flex justify-between text-3xl font-bold text-white hidden" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.4);">
+            <p>TIME: <span id="timer">0.0</span></p>
+            <p>KILLS: <span id="kill-count">0</span></p>
+        </div>
+        
+        <div id="message-overlay" class="w-full h-full flex flex-col justify-center items-center bg-black/40 pointer-events-auto">
+            <div class="p-8">
+                <h1 id="message-title" class="text-6xl font-bold text-white mb-4" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.5);">蚊から逃げろ！</h1>
+                <p id="message-text" class="text-xl text-white mb-8"></p>
+                <button id="start-button" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-10 rounded-lg text-2xl transition-all duration-300 shadow-lg">
+                    ゲーム開始
+                </button>
+            </div>
+        </div>
+
+        <div id="cooldown-display" class="absolute bottom-6 left-6 w-20 h-20 bg-black/30 rounded-full hidden">
+            <div id="cooldown-pie" class="w-full h-full"></div>
+            <div class="absolute inset-0 flex items-center justify-center text-white text-3xl">
+                💥
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiElements = {
+            scoreDisplay: document.getElementById('score-display'),
+            killCount: document.getElementById('kill-count'),
+            timer: document.getElementById('timer'),
+            messageOverlay: document.getElementById('message-overlay'),
+            messageTitle: document.getElementById('message-title'),
+            messageText: document.getElementById('message-text'),
+            startButton: document.getElementById('start-button'),
+            cooldownDisplay: document.getElementById('cooldown-display'),
+            cooldownPie: document.getElementById('cooldown-pie'),
+        };
+
+        let gameState = 'waiting';
+        let player, mosquitoes, coil, attacks;
+        let spawnTimer = 0, spawnInterval = 100, gameTime = 0, killCount = 0;
+        let animationFrameId;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Player {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = canvas.height / 2;
+                this.radius = 10;
+                this.safeZone = { active: false, timer: 0, radius: 60 };
+                this.attackCooldown = 0;
+            }
+            update(mouseX, mouseY) {
+                this.x = mouseX;
+                this.y = mouseY;
+                if (this.safeZone.active) {
+                    this.safeZone.timer--;
+                    if (this.safeZone.timer <= 0) this.safeZone.active = false;
+                }
+                if (this.attackCooldown > 0) this.attackCooldown--;
+            }
+            draw() {
+                if (this.safeZone.active) {
+                    const alpha = Math.min(1, this.safeZone.timer / 100);
+                    ctx.beginPath(); ctx.arc(this.x, this.y, this.safeZone.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(134, 239, 172, ${0.3 * alpha})`; ctx.fill(); ctx.strokeStyle = `rgba(34, 197, 94, ${0.8 * alpha})`; ctx.lineWidth = 3; ctx.stroke();
+                }
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fillStyle = '#60a5fa'; ctx.fill();
+            }
+            activateSafeZone() { this.safeZone.active = true; this.safeZone.timer = 300; }
+            canAttack() { return this.attackCooldown <= 0; }
+            getAttackRadius() {
+                return 70 + Math.floor(killCount / 10) * 8;
+            }
+            getAttackCooldownDuration() {
+                return Math.max(15, 30 - Math.floor(killCount / 10) * 2);
+            }
+            attack() {
+                if (this.canAttack()) {
+                    this.attackCooldown = this.getAttackCooldownDuration();
+                    attacks.push(new Attack(this.x, this.y, this.getAttackRadius()));
+                    new Tone.Synth().toDestination().triggerAttackRelease("G2", "16n");
+                }
+            }
+        }
+
+        class Mosquito {
+            constructor() {
+                const side = Math.floor(Math.random() * 4);
+                if (side === 0) { this.x = -10; this.y = Math.random() * canvas.height; }
+                else if (side === 1) { this.x = canvas.width + 10; this.y = Math.random() * canvas.height; }
+                else if (side === 2) { this.x = Math.random() * canvas.width; this.y = -10; }
+                else { this.x = Math.random() * canvas.width; this.y = canvas.height + 10; }
+                this.radius = 5;
+                this.speed = Math.random() * 1 + (0.5 + gameTime / 2000);
+                this.angle = 0;
+                this.state = 'alive';
+            }
+            update(playerX, playerY, isSafe) {
+                if (this.state === 'dying') { this.y += 2; return; }
+                const dx = playerX - this.x; const dy = playerY - this.y;
+                let angle = Math.atan2(dy, dx);
+                if(isSafe) { const dist = Math.hypot(dx, dy); if (dist < player.safeZone.radius) angle += Math.PI; }
+                this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed;
+                this.angle = angle;
+            }
+            draw() {
+                ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle + (this.state === 'dying' ? Math.PI : 0));
+                ctx.fillStyle = this.state === 'dying' ? '#94a3b8' : '#334155'; ctx.fillRect(-5, -2, 10, 4);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; ctx.fillRect(-3, -7, 6, 5); ctx.fillRect(-3, 2, 6, 5);
+                ctx.restore();
+            }
+            die() {
+                if (this.state === 'alive') {
+                    const lastKillCountTen = Math.floor((killCount) / 10);
+                    this.state = 'dying';
+                    killCount++;
+                    const newKillCountTen = Math.floor((killCount) / 10);
+                    if (newKillCountTen > lastKillCountTen) {
+                        createPowerUpText(player.x, player.y, "パワーアップ！");
+                    }
+                    uiElements.killCount.textContent = killCount;
+                    new Tone.MembraneSynth().toDestination().triggerAttackRelease("C2", "8n");
+                }
+            }
+        }
+        
+        class Attack {
+            constructor(x, y, radius) {
+                this.x = x; this.y = y; this.maxRadius = radius; this.life = 10;
+            }
+            update() { this.life--; }
+            draw() {
+                const progress = (10 - this.life) / 10;
+                const currentRadius = this.maxRadius * progress;
+                ctx.beginPath(); ctx.arc(this.x, this.y, currentRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${1 - progress})`;
+                ctx.lineWidth = 5 * (1-progress); ctx.stroke();
+            }
+        }
+
+        class Coil {
+             constructor() { this.x = Math.random() * (canvas.width - 40) + 20; this.y = Math.random() * (canvas.height - 40) + 20; this.radius = 15; this.spawnTime = gameTime + 300; this.active = false; }
+            update() { if (!this.active && gameTime > this.spawnTime) this.active = true; }
+            draw() { if (!this.active) return; ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 5; ctx.beginPath(); for (let i = 0; i < 720; i++) { const angle = 0.1 * i; const r = this.radius * (i / 720); ctx.lineTo(this.x + r * Math.cos(angle), this.y + r * Math.sin(angle)); } ctx.stroke(); }
+        }
+
+        function createPowerUpText(x, y, text) {
+            const textEl = document.createElement('div');
+            textEl.textContent = text;
+            textEl.className = 'powerup-text';
+            textEl.style.left = `${x - 60}px`;
+            textEl.style.top = `${y - 40}px`;
+            document.body.appendChild(textEl);
+            setTimeout(() => textEl.remove(), 1500);
+        }
+        
+        let mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
+        canvas.addEventListener('mousemove', e => { const rect = canvas.getBoundingClientRect(); mousePos.x = e.clientX - rect.left; mousePos.y = e.clientY - rect.top; });
+        canvas.addEventListener('click', () => { if (gameState === 'playing') player.attack(); });
+
+
+        function gameLoop() {
+            if (gameState !== 'playing') { cancelAnimationFrame(animationFrameId); return; }
+
+            gameTime++;
+            player.update(mousePos.x, mousePos.y);
+            mosquitoes.forEach(m => m.update(player.x, player.y, player.safeZone.active));
+            if (coil) coil.update();
+            attacks.forEach(a => a.update());
+
+            spawnTimer++;
+            if (spawnTimer > spawnInterval) {
+                const spawnCount = 1 + Math.floor(gameTime / 1800);
+                for(let i=0; i< spawnCount; i++) {
+                    mosquitoes.push(new Mosquito());
+                }
+                spawnTimer = 0;
+                spawnInterval = Math.max(10, 60 - gameTime / 100);
+            }
+
+            // --- 衝突判定 ---
+            attacks.forEach(attack => {
+                mosquitoes.forEach(mosquito => {
+                    if(mosquito.state === 'alive'){
+                       const dist = Math.hypot(attack.x - mosquito.x, attack.y - mosquito.y);
+                       if (dist < attack.maxRadius) mosquito.die();
+                    }
+                });
+            });
+            mosquitoes.forEach(m => {
+                if(m.state === 'alive'){
+                    const dist = Math.hypot(player.x - m.x, player.y - m.y);
+                    if (!player.safeZone.active && dist < player.radius + m.radius) gameOver();
+                }
+            });
+            if (coil && coil.active) { const dist = Math.hypot(player.x - coil.x, player.y - coil.y); if(dist < player.radius + coil.radius) { player.activateSafeZone(); coil = null; new Tone.Synth().toDestination().triggerAttackRelease("A5", "8n"); } }
+
+            // --- 描画処理 ---
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (coil) coil.draw();
+            mosquitoes.forEach(m => m.draw());
+            player.draw();
+            attacks.forEach(a => a.draw());
+            
+            attacks = attacks.filter(a => a.life > 0);
+            mosquitoes = mosquitoes.filter(m => m.y < canvas.height + 20);
+            
+            uiElements.timer.textContent = (gameTime / 60).toFixed(1);
+            const cooldownRatio = player.attackCooldown / player.getAttackCooldownDuration();
+            uiElements.cooldownPie.style.background = `conic-gradient(#fecaca ${cooldownRatio * 360}deg, #4d7c0f ${cooldownRatio * 360}deg)`;
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+        
+        function startGame() {
+            gameState = 'playing';
+            mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
+            player = new Player();
+            mosquitoes = []; attacks = []; coil = new Coil();
+            gameTime = 0; spawnTimer = 0; spawnInterval = 60; killCount = 0;
+            uiElements.killCount.textContent = killCount;
+            
+            uiElements.messageOverlay.classList.add('hidden');
+            uiElements.scoreDisplay.classList.remove('hidden');
+            uiElements.cooldownDisplay.classList.remove('hidden');
+            
+            if (Tone.context.state !== 'running') Tone.context.resume();
+            new Tone.Synth().toDestination().triggerAttackRelease("C4", "8n");
+
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            if (gameState !== 'playing') return;
+            gameState = 'gameover';
+            
+            uiElements.messageTitle.textContent = 'ゲームオーバー';
+            uiElements.messageText.innerHTML = `生き延びた時間: <span class="text-2xl font-bold">${(gameTime / 60).toFixed(1)}</span> 秒<br>撃退数: <span class="text-2xl font-bold">${killCount}</span> 匹`;
+            uiElements.startButton.textContent = 'もう一度挑戦する';
+            
+            uiElements.scoreDisplay.classList.add('hidden');
+            uiElements.cooldownDisplay.classList.add('hidden');
+            uiElements.messageOverlay.classList.remove('hidden');
+
+            new Tone.Synth().toDestination().triggerAttackRelease("A2", "4n");
+        }
+
+        function resetGame() {
+            gameState = 'waiting';
+            cancelAnimationFrame(animationFrameId);
+            uiElements.messageTitle.textContent = '蚊から逃げろ！';
+            uiElements.messageText.textContent = '';
+            uiElements.startButton.textContent = 'ゲーム開始';
+            uiElements.messageOverlay.classList.remove('hidden');
+            uiElements.scoreDisplay.classList.add('hidden');
+            uiElements.cooldownDisplay.classList.add('hidden');
+        }
+
+        uiElements.startButton.addEventListener('click', () => {
+             if (gameState === 'waiting' || gameState === 'gameover') startGame();
+        });
+
+        resetGame();
+    </script>
+</body>
+</html>

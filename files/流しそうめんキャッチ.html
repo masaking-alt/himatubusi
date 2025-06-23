@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流しそうめんキャッチ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kaisei+Opti&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kaisei Opti', serif;
+            background-color: #e0f2fe; /* bg-sky-100 */
+        }
+        canvas {
+            background-color: #f0f9ff; /* bg-sky-50 */
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+
+    <div class="relative w-full max-w-md aspect-[9/16] shadow-2xl rounded-2xl overflow-hidden">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI要素 -->
+        <div id="ui-container" class="absolute inset-0 p-8 flex flex-col justify-between items-center text-center pointer-events-none">
+            
+            <div class="w-full flex justify-between items-start">
+                <!-- アイテムの点数表示 -->
+                <div id="item-legend" class="text-left text-lg font-bold text-gray-700 hidden">
+                    <p>そうめん: 10点</p>
+                    <p class="text-pink-600">さくらんぼ: 50点</p>
+                    <p class="text-red-700">めんつゆ: ゲームオーバー</p>
+                </div>
+
+                <!-- スコア表示 -->
+                <div id="score-display" class="text-right text-2xl font-bold text-gray-700 hidden">
+                    <p>スコア：<span id="score">0</span></p>
+                    <p class="text-lg">目標スコア：500</p>
+                </div>
+            </div>
+            
+            
+            <!-- 開始・ゲームオーバー・クリア画面 -->
+            <div id="message-overlay" class="w-full h-full flex flex-col justify-center items-center bg-black/30 pointer-events-auto">
+                <div class="p-8 bg-white/90 rounded-xl shadow-lg">
+                    <h1 id="message-title" class="text-4xl font-bold text-sky-700 mb-2">流しそうめんキャッチ</h1>
+                    <p id="message-text" class="text-lg text-gray-600 mb-6">クリックして、そうめんをキャッチ！</p>
+                    <button id="start-button" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-10 rounded-full text-xl transition-all duration-300">
+                        開始
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- 初期設定 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI要素
+        const scoreDisplay = document.getElementById('score-display');
+        const scoreEl = document.getElementById('score');
+        const itemLegend = document.getElementById('item-legend');
+        const messageOverlay = document.getElementById('message-overlay');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const startButton = document.getElementById('start-button');
+        
+        // --- 変数定義 ---
+        let gameState = 'waiting'; // 'waiting', 'playing', 'gameover', 'cleared'
+        let score = 0;
+        let items = [];
+        let chopsticks = { y: 0, state: 'idle', frame: 0 }; // state: idle, catching
+        let spawnTimer = 0;
+        let spawnInterval = 120; // 2秒
+        let gameSpeed = 1.0;
+        const TARGET_SCORE = 500; 
+
+        // --- キャンバスのサイズ設定 ---
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            chopsticks.y = canvas.height * 0.8;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- アイテムのクラス ---
+        class Item {
+            constructor() {
+                this.x = canvas.width / 2 + (Math.random() - 0.5) * 20;
+                this.y = -20;
+                this.rotation = (Math.random() - 0.5) * 0.5;
+                
+                const rand = Math.random();
+                if (rand < 0.05) {
+                    this.type = 'cherry';
+                    this.speed = 2.5 * gameSpeed;
+                    this.points = 50;
+                } else if (rand < 0.20) {
+                    this.type = 'broth'; // めんつゆ
+                    this.speed = 3.0 * gameSpeed;
+                    this.points = 0;
+                } else {
+                    this.type = 'somen';
+                    this.speed = 2.0 * gameSpeed;
+                    this.points = 10;
+                }
+            }
+
+            update() {
+                this.y += this.speed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                switch (this.type) {
+                    case 'somen':
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(-15, -5);
+                        ctx.quadraticCurveTo(0, 0, 15, 5);
+                        ctx.moveTo(-15, 5);
+                        ctx.quadraticCurveTo(0, 10, 15, 15);
+                        ctx.stroke();
+                        break;
+                    case 'cherry':
+                        ctx.fillStyle = '#e53935'; // 赤色
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#43a047'; // 緑色
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(0, -6);
+                        ctx.lineTo(5, -12);
+                        ctx.stroke();
+                        break;
+                    case 'broth':
+                        ctx.fillStyle = '#6d4c41'; // 茶色
+                        ctx.beginPath();
+                        ctx.moveTo(0, -10);
+                        ctx.bezierCurveTo(-15, -12, -12, 12, 0, 10);
+                        ctx.bezierCurveTo(15, 12, 12, -12, 0, -10);
+                        ctx.fill();
+                        break;
+                }
+                ctx.restore();
+            }
+        }
+
+        // --- ゲームループ ---
+        function gameLoop() {
+            if (gameState !== 'playing') return;
+
+            // 画面クリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 背景（竹）を描画
+            ctx.fillStyle = '#a1887f';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2 - 30, 0);
+            ctx.lineTo(canvas.width/2 - 20, canvas.height);
+            ctx.lineTo(canvas.width/2 + 20, canvas.height);
+            ctx.lineTo(canvas.width/2 + 30, 0);
+            ctx.closePath();
+            ctx.fill();
+
+
+            // アイテム生成
+            spawnTimer++;
+            if (spawnTimer > spawnInterval) {
+                items.push(new Item());
+                spawnTimer = 0;
+                spawnInterval = Math.max(40, spawnInterval * 0.99);
+                gameSpeed = Math.min(2.5, gameSpeed * 1.01);
+            }
+
+            // アイテム更新と描画
+            items.forEach((item, index) => {
+                item.update();
+                item.draw();
+                if (item.y > canvas.height + 20) {
+                    items.splice(index, 1);
+                }
+            });
+
+            // お箸の描画
+            drawChopsticks();
+
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function drawChopsticks() {
+            const baseX = canvas.width / 2;
+            const baseY = chopsticks.y;
+            let angle = 0.1; 
+            
+            if (chopsticks.state === 'catching') {
+                const progress = chopsticks.frame / 10;
+                angle = 0.1 - Math.sin(progress * Math.PI) * 0.1;
+                chopsticks.frame++;
+                if (chopsticks.frame > 10) {
+                    chopsticks.state = 'idle';
+                    chopsticks.frame = 0;
+                }
+            }
+            
+            ctx.strokeStyle = '#8d6e63';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            // 右
+            ctx.beginPath();
+            ctx.moveTo(baseX + 10, baseY - 80);
+            ctx.lineTo(baseX + 5 + Math.sin(angle) * 30, baseY);
+            ctx.stroke();
+            // 左
+            ctx.beginPath();
+            ctx.moveTo(baseX - 10, baseY - 80);
+            ctx.lineTo(baseX - 5 - Math.sin(angle) * 30, baseY);
+            ctx.stroke();
+        }
+
+        function handleCatch() {
+            if (gameState !== 'playing' || chopsticks.state === 'catching') return;
+
+            chopsticks.state = 'catching';
+            chopsticks.frame = 0;
+
+            const catchY = chopsticks.y;
+            const catchX = canvas.width / 2;
+            
+            let caughtSomething = false;
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                if (!caughtSomething && Math.abs(item.y - catchY) < 15 && Math.abs(item.x - catchX) < 25) {
+                    caughtSomething = true;
+                    if (item.type === 'broth') {
+                        gameOver(item.type);
+                        return;
+                    } else {
+                        score += item.points;
+                        scoreEl.textContent = score;
+                        items.splice(i, 1);
+                        playSound(item.type);
+                        
+                        if (score >= TARGET_SCORE) {
+                            gameClear();
+                            return; 
+                        }
+                    }
+                }
+            }
+        }
+        
+        function playSound(type) {
+             const synth = new Tone.Synth().toDestination();
+             if (type === 'cherry') {
+                 synth.triggerAttackRelease("C5", "8n");
+             } else {
+                 synth.triggerAttackRelease("G4", "16n");
+             }
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            score = 0;
+            items = [];
+            gameSpeed = 1.0;
+            spawnInterval = 120;
+            scoreEl.textContent = score;
+
+            messageOverlay.classList.add('hidden');
+            scoreDisplay.classList.remove('hidden');
+            itemLegend.classList.remove('hidden'); 
+            
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume();
+            }
+
+            canvas.addEventListener('click', handleCatch);
+
+            gameLoop();
+        }
+
+        function gameOver(reason) {
+            gameState = 'gameover';
+            canvas.removeEventListener('click', handleCatch);
+            const synth = new Tone.Synth().toDestination();
+            synth.triggerAttackRelease("C3", "4n");
+            
+            messageTitle.textContent = 'ゲームオーバー';
+            if (reason === 'broth') {
+                // ★★★ 修正点 ★★★
+                messageText.innerHTML = `めんつゆをキャッチしてしまった...<br>スコア: ${score}`;
+            }
+            startButton.textContent = 'もう一度遊ぶ';
+            
+            scoreDisplay.classList.add('hidden');
+            itemLegend.classList.add('hidden');
+            messageOverlay.classList.remove('hidden');
+        }
+        
+        function gameClear() {
+            gameState = 'cleared';
+            canvas.removeEventListener('click', handleCatch);
+            const synth = new Tone.Synth().toDestination();
+            synth.triggerAttackRelease("E5", "4n"); 
+
+            messageTitle.textContent = '🎉 クリア！ 🎉';
+            messageTitle.classList.remove('text-sky-700');
+            messageTitle.classList.add('text-amber-500');
+            // ★★★ 修正点 ★★★
+            messageText.innerHTML = `お見事！お腹いっぱいです。<br>スコア: ${score}`;
+            startButton.textContent = 'もう一度遊ぶ';
+            
+            scoreDisplay.classList.add('hidden');
+            itemLegend.classList.add('hidden');
+            messageOverlay.classList.remove('hidden');
+        }
+
+        // --- イベントリスナー ---
+        startButton.addEventListener('click', (event) => {
+             event.stopPropagation();
+             if (gameState === 'waiting' || gameState === 'gameover' || gameState === 'cleared') {
+                 messageTitle.textContent = '流しそうめんキャッチ';
+                 messageTitle.classList.remove('text-amber-500');
+                 messageTitle.classList.add('text-sky-700');
+                 startGame();
+             }
+        });
+
+    </script>
+</body>
+</html>
